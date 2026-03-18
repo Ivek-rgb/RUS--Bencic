@@ -1,0 +1,132 @@
+{
+	"version": 1,
+	"author": "GitHub Copilot",
+	"editor": "wokwi",
+	"parts": [
+		{
+			"type": "wokwi-esp32-devkit-v1",
+			"id": "esp",
+			"top": -6,
+			"left": -14,
+			"attrs": {}
+		},
+		{
+			"type": "wokwi-hc-sr04",
+			"id": "ultra",
+			"top": -160,
+			"left": 250,
+			"attrs": {}
+		},
+		{
+			"type": "wokwi-led",
+			"id": "ledInt0",
+			"top": 170,
+			"left": -300,
+			"attrs": {
+				"color": "red"
+			}
+		},
+		{
+			"type": "wokwi-led",
+			"id": "ledInt1",
+			"top": 170,
+			"left": -250,
+			"attrs": {
+				"color": "orange"
+			}
+		},
+		{
+			"type": "wokwi-led",
+			"id": "ledInt2",
+			"top": 170,
+			"left": -200,
+			"attrs": {
+				"color": "yellow"
+			}
+		},
+		{
+			"type": "wokwi-led",
+			"id": "ledAlert",
+			"top": 170,
+			"left": -150,
+			"attrs": {
+				"color": "blue"
+			}
+		},
+		{
+			"type": "wokwi-led",
+			"id": "ledTimer",
+			"top": 170,
+			"left": -100,
+			"attrs": {
+				"color": "green"
+			}
+		},
+		{
+			"type": "wokwi-pushbutton",
+			"id": "btn0",
+			"top": -180,
+			"left": -300,
+			"attrs": {
+				"color": "red",
+				"label": "INT0"
+			}
+		},
+		{
+			"type": "wokwi-pushbutton",
+			"id": "btn1",
+			"top": -180,
+			"left": -220,
+			"attrs": {
+				"color": "orange",
+				"label": "INT1"
+			}
+		},
+		{
+			"type": "wokwi-pushbutton",
+			"id": "btn2",
+			"top": -180,
+			"left": -140,
+			"attrs": {
+				"color": "yellow",
+				"label": "INT2"
+			}
+		}
+	],
+	"connections": [
+		["esp:TX0", "$serialMonitor:RX", "", []],
+		["esp:RX0", "$serialMonitor:TX", "", []],
+
+		["esp:D16", "ledInt0:A", "green", []],
+		["ledInt0:C", "esp:GND.1", "black", []],
+
+		["esp:D17", "ledInt1:A", "green", []],
+		["ledInt1:C", "esp:GND.1", "black", []],
+
+		["esp:D18", "ledInt2:A", "green", []],
+		["ledInt2:C", "esp:GND.1", "black", []],
+
+		["esp:D19", "ledAlert:A", "green", []],
+		["ledAlert:C", "esp:GND.1", "black", []],
+
+		["esp:D23", "ledTimer:A", "green", []],
+		["ledTimer:C", "esp:GND.1", "black", []],
+
+
+		["esp:D25", "btn0:1.r", "green", []],
+		["btn0:2.r", "esp:GND.1", "black", []],
+
+
+		["esp:D26", "btn1:1.r", "green", []],
+		["btn1:2.r", "esp:GND.1", "black", []],
+
+
+		["esp:D27", "btn2:1.r", "green", []],
+		["btn2:2.r", "esp:GND.1", "black", []],
+
+		["esp:D4", "ultra:TRIG", "green", []],
+		["esp:D5", "ultra:ECHO", "green", []],
+		["esp:VIN", "ultra:VCC", "red", []],
+		["esp:GND.1", "ultra:GND", "black", []]
+	]
+}
