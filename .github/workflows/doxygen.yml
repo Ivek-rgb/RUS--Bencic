@@ -45,4 +45,4 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3  # Use the 'actions-gh-pages' action to deploy documentation
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}  # Use the GitHub token for authentication
-          publish_dir: Lab1/docs/html  # Directory where the HTML documentation is generated
+          publish_dir: LAB1/docs/html  # Directory where the HTML documentation is generated
