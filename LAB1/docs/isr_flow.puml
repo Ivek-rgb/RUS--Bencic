@@ -1,0 +1,43 @@
+@startuml isr_flow
+!theme plain
+title ESP32 Traffic Light - ISR and Processing Flow
+
+concise "Timer HW (1 Hz)" as THW
+concise "Button GPIO" as BGP
+concise "loop() processing" as LOOP
+concise "TL-A State" as TLA
+concise "TL-B State" as TLB
+
+@0
+THW is "fires"
+BGP is "idle"
+LOOP is "idle"
+TLA is "RED"
+TLB is "OFF"
+
+@1
+THW is "timerFlag=true"
+LOOP is "processTimer"
+TLA is "RED (tick++)"
+
+@5
+THW is "timerFlag=true"
+LOOP is "processTimer"
+TLA is "RED_YELLOW"
+
+@7
+TLA is "GREEN"
+
+@8
+BGP is "PRESSED"
+LOOP is "processButton"
+TLA is "BLINK_YEL"
+TLB is "BLINK_YEL"
+
+@10
+BGP is "PRESSED"
+LOOP is "processButton"
+TLA is "GREEN"
+TLB is "OFF"
+
+@enduml

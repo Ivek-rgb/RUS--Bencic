@@ -1,0 +1,56 @@
+@startuml interrupt_priority
+!theme plain
+title Simultaneous Interrupt Detection & Resolution
+
+|loop()|
+start
+:Multiple interrupts may\nfire simultaneously;
+
+partition "Simultaneous Interrupt Resolution" #LightBlue {
+  :Check **buttonFlag**\n(portENTER_CRITICAL);
+  if (buttonFlag?) then (yes)
+    #Orange:processButtonInterrupt()
+    **HIGHEST PRIORITY**
+    Toggles blinking mode
+    Cancels all lower modes;
+  else (no)
+  endif
+
+  :Check **distance sensor**\n(polled measurement);
+  if (object < 20cm && !blinkingMode?) then (yes)
+    #Yellow:processDistanceSensor()
+    **MEDIUM PRIORITY**
+    Sets TL-B opposite to TL-A
+    Overrides timer control of TL-B;
+  else (no)
+  endif
+
+  :Check **timerFlag**\n(portENTER_CRITICAL);
+  if (timerFlag && !blinkingMode?) then (yes)
+    #LightGreen:processTimerInterrupt()
+    **LOWEST PRIORITY**
+    Advances TL-A state machine
+    Skipped if override/blink active;
+  else (no)
+  endif
+}
+
+:delay(50ms);
+stop
+
+note right
+  **Resource Protection:**
+  - portMUX critical sections
+    for atomic flag access
+  - volatile flags set in ISRs
+  - Deferred processing in loop()
+
+  **Nested Interrupts (real HW):**
+  - Timer ISR: Level 1
+  - Button ISR: Level 3
+  - Button can preempt timer
+end note
+
+|loop()|
+
+@enduml

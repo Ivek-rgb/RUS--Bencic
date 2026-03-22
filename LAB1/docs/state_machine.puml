@@ -1,0 +1,50 @@
+@startuml state_machine
+!theme plain
+title Traffic Light State Machine
+
+state "Normal Operation" as Normal {
+  state "STATE_RED" as RED
+  state "STATE_RED_YELLOW" as RY
+  state "STATE_GREEN" as GREEN
+  state "STATE_YELLOW" as YELLOW
+
+  [*] --> RED
+  RED --> RY : 5 ticks (5s)
+  RY --> GREEN : 2 ticks (2s)
+  GREEN --> YELLOW : 5 ticks (5s)
+  YELLOW --> RED : 2 ticks (2s)
+}
+
+state "Blinking Yellow" as Blink {
+  state "Yellow ON" as YON
+  state "Yellow OFF" as YOFF
+
+  [*] --> YOFF
+  YOFF --> YON : 500ms
+  YON --> YOFF : 500ms
+}
+
+state "Distance Override" as Override {
+  state "TL-B follows TL-A\n(opposite state)" as OVR
+  [*] --> OVR
+  OVR --> OVR : re-check every 5s\n(object still present)
+}
+
+Normal --> Blink : Button press\n(HIGHEST priority)
+Blink --> Normal : Button press again
+Normal --> Override : Object < 20cm\n(MEDIUM priority)
+Override --> Normal : Object removed\n& TL-B reaches RED
+
+note right of Blink
+  Both TL-A and TL-B
+  blink yellow together.
+  Cancels distance override.
+end note
+
+note right of Override
+  TL-A continues normal cycle.
+  TL-B set to opposite of TL-A.
+  Timer still advances TL-B.
+end note
+
+@enduml

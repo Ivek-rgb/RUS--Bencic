@@ -1,0 +1,43 @@
+# Doxyfile - ESP32 Traffic Light project
+# Generate documentation: doxygen Doxyfile
+
+PROJECT_NAME           = "ESP32 Traffic Light - Interrupt System"
+PROJECT_NUMBER         = "2.4"
+PROJECT_BRIEF          = "Multi-interrupt priority demonstration on ESP32 - RUS Lab 1"
+OUTPUT_DIRECTORY       = docs
+OUTPUT_LANGUAGE        = English
+
+# Input files
+INPUT                  = src/main.cpp docs/
+FILE_PATTERNS          = *.cpp *.h *.puml *.md
+RECURSIVE              = YES
+
+# Extraction
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+
+# Output formats
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+
+# Diagrams - PlantUML integration
+HAVE_DOT               = NO
+PLANTUML_JAR_PATH      =
+PLANTUML_INCLUDE_PATH  = docs
+IMAGE_PATH             = docs
+
+# Optimization for C++
+OPTIMIZE_OUTPUT_FOR_C  = NO
+
+# Grouping
+GROUP_GRAPHS           = YES
+SORT_MEMBER_DOCS       = NO
+
+# Style
+HTML_COLORSTYLE_HUE    = 220
+FULL_PATH_NAMES        = NO
+
+# Extra pages
+USE_MDFILE_AS_MAINPAGE =

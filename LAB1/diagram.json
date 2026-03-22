@@ -1,132 +1,100 @@
 {
 	"version": 1,
-	"author": "GitHub Copilot",
+	"author": "Ivan Bencic",
 	"editor": "wokwi",
 	"parts": [
 		{
 			"type": "wokwi-esp32-devkit-v1",
 			"id": "esp",
-			"top": -6,
-			"left": -14,
+			"top": -200,
+			"left": 500,
 			"attrs": {}
+		},
+		{
+			"type": "wokwi-led",
+			"id": "semA_red",
+			"top": -280,
+			"left": -380,
+			"attrs": { "color": "red", "label": "A-Red" }
+		},
+		{
+			"type": "wokwi-led",
+			"id": "semA_yellow",
+			"top": -220,
+			"left": -380,
+			"attrs": { "color": "yellow", "label": "A-Yel" }
+		},
+		{
+			"type": "wokwi-led",
+			"id": "semA_green",
+			"top": -160,
+			"left": -380,
+			"attrs": { "color": "green", "label": "A-Grn" }
+		},
+		{
+			"type": "wokwi-led",
+			"id": "semB_red",
+			"top": -340,
+			"left": -100,
+			"attrs": { "color": "red", "label": "B-Red" }
+		},
+		{
+			"type": "wokwi-led",
+			"id": "semB_yellow",
+			"top": -340,
+			"left": -30,
+			"attrs": { "color": "yellow", "label": "B-Yel" }
+		},
+		{
+			"type": "wokwi-led",
+			"id": "semB_green",
+			"top": -340,
+			"left": 40,
+			"attrs": { "color": "green", "label": "B-Grn" }
+		},
+		{
+			"type": "wokwi-pushbutton",
+			"id": "btnBlink",
+			"top": -300,
+			"left": 530,
+			"attrs": { "color": "yellow", "label": "BLINK" }
 		},
 		{
 			"type": "wokwi-hc-sr04",
 			"id": "ultra",
-			"top": -160,
-			"left": 250,
+			"top": -360,
+			"left": 120,
 			"attrs": {}
-		},
-		{
-			"type": "wokwi-led",
-			"id": "ledInt0",
-			"top": 170,
-			"left": -300,
-			"attrs": {
-				"color": "red"
-			}
-		},
-		{
-			"type": "wokwi-led",
-			"id": "ledInt1",
-			"top": 170,
-			"left": -250,
-			"attrs": {
-				"color": "orange"
-			}
-		},
-		{
-			"type": "wokwi-led",
-			"id": "ledInt2",
-			"top": 170,
-			"left": -200,
-			"attrs": {
-				"color": "yellow"
-			}
-		},
-		{
-			"type": "wokwi-led",
-			"id": "ledAlert",
-			"top": 170,
-			"left": -150,
-			"attrs": {
-				"color": "blue"
-			}
-		},
-		{
-			"type": "wokwi-led",
-			"id": "ledTimer",
-			"top": 170,
-			"left": -100,
-			"attrs": {
-				"color": "green"
-			}
-		},
-		{
-			"type": "wokwi-pushbutton",
-			"id": "btn0",
-			"top": -180,
-			"left": -300,
-			"attrs": {
-				"color": "red",
-				"label": "INT0"
-			}
-		},
-		{
-			"type": "wokwi-pushbutton",
-			"id": "btn1",
-			"top": -180,
-			"left": -220,
-			"attrs": {
-				"color": "orange",
-				"label": "INT1"
-			}
-		},
-		{
-			"type": "wokwi-pushbutton",
-			"id": "btn2",
-			"top": -180,
-			"left": -140,
-			"attrs": {
-				"color": "yellow",
-				"label": "INT2"
-			}
 		}
 	],
 	"connections": [
 		["esp:TX0", "$serialMonitor:RX", "", []],
 		["esp:RX0", "$serialMonitor:TX", "", []],
 
-		["esp:D16", "ledInt0:A", "green", []],
-		["ledInt0:C", "esp:GND.1", "black", []],
+		["esp:D14", "semA_red:A", "red", []],
+		["semA_red:C", "esp:GND.1", "black", []],
 
-		["esp:D17", "ledInt1:A", "green", []],
-		["ledInt1:C", "esp:GND.1", "black", []],
+		["esp:D27", "semA_yellow:A", "gold", []],
+		["semA_yellow:C", "esp:GND.1", "black", []],
 
-		["esp:D18", "ledInt2:A", "green", []],
-		["ledInt2:C", "esp:GND.1", "black", []],
+		["esp:D26", "semA_green:A", "green", []],
+		["semA_green:C", "esp:GND.1", "black", []],
 
-		["esp:D19", "ledAlert:A", "green", []],
-		["ledAlert:C", "esp:GND.1", "black", []],
+		["esp:D19", "semB_red:A", "red", []],
+		["semB_red:C", "esp:GND.2", "black", []],
 
-		["esp:D23", "ledTimer:A", "green", []],
-		["ledTimer:C", "esp:GND.1", "black", []],
+		["esp:D23", "semB_yellow:A", "gold", []],
+		["semB_yellow:C", "esp:GND.2", "black", []],
 
+		["esp:D13", "semB_green:A", "green", []],
+		["semB_green:C", "esp:GND.2", "black", []],
 
-		["esp:D25", "btn0:1.r", "green", []],
-		["btn0:2.r", "esp:GND.1", "black", []],
+		["esp:D25", "btnBlink:1.r", "purple", []],
+		["btnBlink:2.r", "esp:GND.1", "black", []],
 
-
-		["esp:D26", "btn1:1.r", "green", []],
-		["btn1:2.r", "esp:GND.1", "black", []],
-
-
-		["esp:D27", "btn2:1.r", "green", []],
-		["btn2:2.r", "esp:GND.1", "black", []],
-
-		["esp:D4", "ultra:TRIG", "green", []],
-		["esp:D5", "ultra:ECHO", "green", []],
+		["esp:D4", "ultra:TRIG", "blue", []],
+		["esp:D5", "ultra:ECHO", "blue", []],
 		["esp:VIN", "ultra:VCC", "red", []],
-		["esp:GND.1", "ultra:GND", "black", []]
+		["esp:GND.2", "ultra:GND", "black", []]
 	]
 }

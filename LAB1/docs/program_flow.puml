@@ -1,0 +1,44 @@
+@startuml program_flow
+!theme plain
+title ESP32 Traffic Light - Program Flow
+
+start
+:Serial.begin(115200);
+:Initialize Traffic Light A\n(RED, YELLOW, GREEN pins);
+:Initialize Traffic Light B\n(RED, YELLOW, GREEN pins);
+:Set initial state:\nTL-A = RED, TL-B = OFF;
+:Configure HC-SR04 sensor\n(TRIG, ECHO pins);
+:Setup hardware timer\n(1 Hz, Level 1);
+:Setup button interrupt\n(FALLING edge);
+:Print startup info;
+
+repeat
+  partition "Priority 1 — HIGHEST: Button" {
+    :Read buttonFlag\n(critical section);
+    if (buttonFlag == true?) then (yes)
+      :processButtonInterrupt();
+    else (no)
+    endif
+  }
+
+  partition "Priority 2 — MEDIUM: Distance Sensor" {
+    :processDistanceSensor()\n(polled every loop iteration);
+  }
+
+  partition "Priority 3 — LOWEST: Timer" {
+    :Read timerFlag\n(critical section);
+    if (timerFlag == true?) then (yes)
+      :processTimerInterrupt();
+    else (no)
+    endif
+  }
+
+  if (blinkingMode?) then (yes)
+    :handleBlinking()\nToggle yellow LEDs;
+  else (no)
+  endif
+
+  :delay(50 ms);
+repeat while (loop)
+
+@enduml
