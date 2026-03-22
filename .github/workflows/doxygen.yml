@@ -37,7 +37,7 @@ jobs:
 
       - name: Generate Documentation
         run: |
-          cd Lab1  # Change to the directory containing the Doxyfile
+          cd LAB1  # Change to the directory containing the Doxyfile
           doxygen Doxyfile || { echo "Doxygen failed"; exit 1; }  # Run Doxygen, exit if it fails
           if [ ! -d "docs/html" ]; then echo "Error: docs/html not found!"; exit 1; fi  # Check if the HTML output directory exists
 
