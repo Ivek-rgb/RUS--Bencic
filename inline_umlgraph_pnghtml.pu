@@ -1,5 +1,4 @@
 @startuml inline_umlgraph_1.png
-!theme plain
 title Traffic Light State Machine
 
 state "Normal Operation" as Normal {
@@ -48,7 +47,6 @@ note right of Override
 end note
 @enduml
 @startuml inline_umlgraph_2.png
-!theme plain
 title Interrupt Service Routine Flow
 
 start
@@ -66,7 +64,6 @@ endif
 stop
 @enduml
 @startuml inline_umlgraph_3.png
-!theme plain
 title Main Program Flow
 
 start
@@ -91,7 +88,6 @@ repeat while (loop)
 stop
 @enduml
 @startuml inline_umlgraph_4.png
-!theme plain
 title Interrupt Priority Hierarchy
 
 rectangle "Priority 1 (Highest)\nButton GPIO ISR" as P1 #ff9999
