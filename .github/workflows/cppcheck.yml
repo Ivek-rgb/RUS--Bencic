@@ -1,0 +1,52 @@
+# .github/workflows/cppcheck.yml
+
+# Name of the workflow
+name: Cppcheck Static Analysis
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push events but only for the main branch
+  push:
+    branches: [ main ]
+  # Triggers the workflow on pull request events but only for the main branch
+  pull_request:
+    branches: [ main ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "cppcheck"
+  cppcheck:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Install cppcheck using the package manager
+      - name: Install cppcheck
+        run: sudo apt-get update && sudo apt-get install -y cppcheck
+
+      # Run cppcheck
+      # Customize the command based on your project structure and needs
+      - name: Run cppcheck analysis
+        run: |
+          if [ -d "LAB1" ]; then
+            cppcheck --enable=all --inconclusive --std=c++17  --checkers-report=cppcheck-report.txt --verbose  $(find LAB1 -name '*.cpp') > cppcheck-report1.txt 2>&1 #--suppress=missingIncludeSystem --suppress=unusedFunction 
+            echo "--- Cppcheck Report ---"
+            cat cppcheck-report.txt
+            echo "--- End Report ---"
+          else
+            echo "Directory LAB1 does not exist!"
+            exit 1
+          fi
+# Analyze all files in the LAB1 directory
+
+      # Upload cppcheck report as artifact
+      - name: Upload cppcheck report
+        uses: actions/upload-artifact@v4
+        with:
+          name: cppcheck-report
+          path: cppcheck-report.txt

@@ -1,0 +1,140 @@
+/**
+ * @mainpage ESP32 Traffic Light - Interrupt System
+ *
+ * @section intro Introduction
+ *
+ * Multi-interrupt priority demonstration on ESP32 for RUS-TVZ Lab 1.
+ *
+ * This project demonstrates hardware interrupts, timer interrupts, and an
+ * ultrasonic distance sensor controlling two traffic lights at a simulated
+ * intersection.
+ *
+ * @section priorities Interrupt Priorities
+ *
+ * | Priority | Source           | Action                                  |
+ * |----------|------------------|-----------------------------------------|
+ * | Highest  | Button (GPIO)    | Blinking yellow for both traffic lights |
+ * | Medium   | Distance sensor  | Forces opposite state on TL-B           |
+ * | Lowest   | Timer (hw ISR)   | Normal state machine cycle              |
+ *
+ * @section diagrams System Diagrams
+ *
+ * @subsection sm State Machine
+ * @startuml
+ * !theme plain
+ * title Traffic Light State Machine
+ *
+ * state "Normal Operation" as Normal {
+ *   state "STATE_RED" as RED
+ *   state "STATE_RED_YELLOW" as RY
+ *   state "STATE_GREEN" as GREEN
+ *   state "STATE_YELLOW" as YELLOW
+ *
+ *   [*] --> RED
+ *   RED --> RY : 5 ticks (5s)
+ *   RY --> GREEN : 2 ticks (2s)
+ *   GREEN --> YELLOW : 5 ticks (5s)
+ *   YELLOW --> RED : 2 ticks (2s)
+ * }
+ *
+ * state "Blinking Yellow" as Blink {
+ *   state "Yellow ON" as YON
+ *   state "Yellow OFF" as YOFF
+ *
+ *   [*] --> YOFF
+ *   YOFF --> YON : 500ms
+ *   YON --> YOFF : 500ms
+ * }
+ *
+ * state "Distance Override" as Override {
+ *   state "TL-B follows TL-A\n(opposite state)" as OVR
+ *   [*] --> OVR
+ *   OVR --> OVR : re-check every 5s\n(object still present)
+ * }
+ *
+ * Normal --> Blink : Button press\n(HIGHEST priority)
+ * Blink --> Normal : Button press again
+ * Normal --> Override : Object < 20cm\n(MEDIUM priority)
+ * Override --> Normal : Object removed\n& TL-B reaches RED
+ *
+ * note right of Blink
+ *   Both TL-A and TL-B
+ *   blink yellow together.
+ *   Cancels distance override.
+ * end note
+ *
+ * note right of Override
+ *   TL-A continues normal cycle.
+ *   TL-B set to opposite of TL-A.
+ *   Timer still advances TL-B.
+ * end note
+ * @enduml
+ *
+ * @subsection isr ISR Flow
+ * @startuml
+ * !theme plain
+ * title Interrupt Service Routine Flow
+ *
+ * start
+ * :Interrupt fires;
+ * if (Button ISR?) then (yes)
+ *   :Set buttonPressed flag;
+ *   :Toggle blinkingMode;
+ * else (no)
+ *   if (Timer ISR?) then (yes)
+ *     :Increment tick counter;
+ *     :Set timerFired flag;
+ *   endif
+ * endif
+ * :Return from ISR;
+ * stop
+ * @enduml
+ *
+ * @subsection pf Program Flow
+ * @startuml
+ * !theme plain
+ * title Main Program Flow
+ *
+ * start
+ * :setup() - Initialize pins, timer, interrupts;
+ * repeat
+ *   :Check serial commands;
+ *   if (blinkingMode?) then (yes)
+ *     :Blink both yellow;
+ *   else (no)
+ *     if (timerFired?) then (yes)
+ *       :Advance state machine;
+ *       :Update TL-A LEDs;
+ *     endif
+ *     :Read ultrasonic sensor;
+ *     if (distance < 20cm?) then (yes)
+ *       :Override TL-B to opposite of TL-A;
+ *     else (no)
+ *       :TL-B follows own cycle;
+ *     endif
+ *   endif
+ * repeat while (loop)
+ * stop
+ * @enduml
+ *
+ * @subsection ip Interrupt Priority
+ * @startuml
+ * !theme plain
+ * title Interrupt Priority Hierarchy
+ *
+ * rectangle "Priority 1 (Highest)\nButton GPIO ISR" as P1 #ff9999
+ * rectangle "Priority 2\nDistance Sensor (polled)" as P2 #ffcc99
+ * rectangle "Priority 3 (Lowest)\nTimer HW ISR" as P3 #99ff99
+ *
+ * P1 -[hidden]down-> P2
+ * P2 -[hidden]down-> P3
+ *
+ * note right of P1 : Toggles blinking yellow mode
+ * note right of P2 : Overrides TL-B state
+ * note right of P3 : Advances normal state cycle
+ * @enduml
+ *
+ * @author Ivan Bencic
+ * @date 2026
+ * @version 2.4
+ */

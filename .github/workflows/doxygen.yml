@@ -32,8 +32,8 @@ jobs:
           sudo apt-get install -y doxygen  # Install Doxygen
           doxygen -v  # Verify that Doxygen is installed correctly
 
-      - name: Install Graphviz
-        run: sudo apt-get install graphviz
+      - name: Install Graphviz and PlantUML
+        run: sudo apt-get install -y graphviz plantuml
 
       - name: Generate Documentation
         run: |

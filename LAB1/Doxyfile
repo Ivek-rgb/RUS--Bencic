@@ -8,8 +8,8 @@ OUTPUT_DIRECTORY       = docs
 OUTPUT_LANGUAGE        = English
 
 # Input files
-INPUT                  = src/main.cpp docs/
-FILE_PATTERNS          = *.cpp *.h *.puml *.md
+INPUT                  = src/main.cpp docs/mainpage.dox
+FILE_PATTERNS          = *.cpp *.h *.dox
 RECURSIVE              = YES
 
 # Extraction
@@ -24,7 +24,7 @@ GENERATE_LATEX         = NO
 
 # Diagrams - PlantUML integration
 HAVE_DOT               = NO
-PLANTUML_JAR_PATH      =
+PLANTUML_JAR_PATH      = /usr/share/plantuml/plantuml.jar
 PLANTUML_INCLUDE_PATH  = docs
 IMAGE_PATH             = docs
 
