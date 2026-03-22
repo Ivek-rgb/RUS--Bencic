@@ -1,5 +1,4 @@
 @startuml program_flow
-!theme plain
 title ESP32 Traffic Light - Program Flow
 
 start

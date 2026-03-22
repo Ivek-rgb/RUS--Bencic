@@ -1,5 +1,4 @@
 @startuml state_machine
-!theme plain
 title Traffic Light State Machine
 
 state "Normal Operation" as Normal {

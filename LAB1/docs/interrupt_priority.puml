@@ -1,5 +1,4 @@
 @startuml interrupt_priority
-!theme plain
 title Simultaneous Interrupt Detection & Resolution
 
 |loop()|

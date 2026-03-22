@@ -1,5 +1,4 @@
 @startuml isr_flow
-!theme plain
 title ESP32 Traffic Light - ISR and Processing Flow
 
 concise "Timer HW (1 Hz)" as THW

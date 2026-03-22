@@ -21,7 +21,6 @@
  *
  * @subsection sm State Machine
  * @startuml
- * !theme plain
  * title Traffic Light State Machine
  *
  * state "Normal Operation" as Normal {
@@ -72,7 +71,6 @@
  *
  * @subsection isr ISR Flow
  * @startuml
- * !theme plain
  * title Interrupt Service Routine Flow
  *
  * start
@@ -92,7 +90,6 @@
  *
  * @subsection pf Program Flow
  * @startuml
- * !theme plain
  * title Main Program Flow
  *
  * start
@@ -119,7 +116,6 @@
  *
  * @subsection ip Interrupt Priority
  * @startuml
- * !theme plain
  * title Interrupt Priority Hierarchy
  *
  * rectangle "Priority 1 (Highest)\nButton GPIO ISR" as P1 #ff9999
