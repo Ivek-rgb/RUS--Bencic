@@ -1,19 +1,17 @@
 var searchData=
 [
-  ['tickcounter_0',['tickCounter',['../classTrafficLight.html#a4f6a8ddb327856e33cd77364f4e2a0c5',1,'TrafficLight']]],
-  ['timer0_1',['timer0',['../main_8cpp.html#a25ee574a82660d392759061e40e6afa6',1,'main.cpp']]],
-  ['timerflag_2',['timerFlag',['../main_8cpp.html#a6aeef4801eda4cb5bc8aaecc65a58922',1,'main.cpp']]],
-  ['timerintcount_3',['timerIntCount',['../main_8cpp.html#a262524f2013a6b9d02bf5deb5a571d19',1,'main.cpp']]],
-  ['timermux_4',['timerMux',['../main_8cpp.html#adedb0f4641b7b425776dbacb23a96576',1,'main.cpp']]],
-  ['tl_5fa_5fgreen_5',['TL_A_GREEN',['../group__pins.html#ga6788ca3974ac5d0489ac8c91be4c2bd1',1,'main.cpp']]],
-  ['tl_5fa_5fred_6',['TL_A_RED',['../group__pins.html#ga486c3f870408529fd5dbf0ef87108e1e',1,'main.cpp']]],
-  ['tl_5fa_5fyellow_7',['TL_A_YELLOW',['../group__pins.html#ga023aa335726ef9763121de708ed8718d',1,'main.cpp']]],
-  ['tl_5fb_5fgreen_8',['TL_B_GREEN',['../group__pins.html#ga1ff4ccad9959eab7d07cce386d38763a',1,'main.cpp']]],
-  ['tl_5fb_5fred_9',['TL_B_RED',['../group__pins.html#ga76778bf9d9acee815a3783c1d347881f',1,'main.cpp']]],
-  ['tl_5fb_5fyellow_10',['TL_B_YELLOW',['../group__pins.html#ga8d3a772c06f93acaebd8eb493b80ebda',1,'main.cpp']]],
-  ['trafficlight_11',['trafficlight',['../classTrafficLight.html#a5e1f16b02a6f602591110acfc421b534',1,'TrafficLight::TrafficLight()'],['../classTrafficLight.html',1,'TrafficLight']]],
-  ['trafficlighta_12',['trafficLightA',['../main_8cpp.html#a0e2d38a7aac46ee1feb87ddd2f804b34',1,'main.cpp']]],
-  ['trafficlightb_13',['trafficLightB',['../main_8cpp.html#adc4af2d79f8d841a4278a8dc4ba9af72',1,'main.cpp']]],
-  ['trafficlightstate_14',['TrafficLightState',['../main_8cpp.html#a729c9ccc12f3b6c0fe51cd6be122c811',1,'main.cpp']]],
-  ['trig_5fpin_15',['TRIG_PIN',['../group__pins.html#ga8eab89acd7dcb0e77e7b00d1749022a6',1,'main.cpp']]]
+  ['serialcmdcount_0',['serialCmdCount',['../main_8cpp.html#ae511691fc234229a9777eae5754863d8',1,'main.cpp']]],
+  ['setstate_1',['setState',['../classTrafficLight.html#a53661ca01493318f9fe93e96b8a90a4e',1,'TrafficLight']]],
+  ['setup_2',['setup',['../main_8cpp.html#a4fc01d736fe50cf5b977f755b675f11d',1,'main.cpp']]],
+  ['setyellow_3',['setYellow',['../classTrafficLight.html#a87da209688142e450136a5bc06c04db9',1,'TrafficLight']]],
+  ['state_4',['state',['../classTrafficLight.html#aa5f66a3ff9809746191e968c8faee0a7',1,'TrafficLight']]],
+  ['state_20machine_5',['State Machine',['../index.html#sm',1,'']]],
+  ['state_5fduration_6',['STATE_DURATION',['../main_8cpp.html#ae934e7eade1a61bbf049f510b1ca596a',1,'main.cpp']]],
+  ['state_5fgreen_7',['STATE_GREEN',['../main_8cpp.html#a729c9ccc12f3b6c0fe51cd6be122c811a072a4ede0375605406e3051ea2fe96ad',1,'main.cpp']]],
+  ['state_5fred_8',['STATE_RED',['../main_8cpp.html#a729c9ccc12f3b6c0fe51cd6be122c811a6d7147f404703f82c268aaae912a73ef',1,'main.cpp']]],
+  ['state_5fred_5fyellow_9',['STATE_RED_YELLOW',['../main_8cpp.html#a729c9ccc12f3b6c0fe51cd6be122c811af37427f2dd747ce229ff7eb81ed5b8ea',1,'main.cpp']]],
+  ['state_5fyellow_10',['STATE_YELLOW',['../main_8cpp.html#a729c9ccc12f3b6c0fe51cd6be122c811a95106a7cdc94f468df07fafa4240701a',1,'main.cpp']]],
+  ['statetostring_11',['stateToString',['../classTrafficLight.html#a2f5ceebd188e51fae21f972bd2195f7b',1,'TrafficLight']]],
+  ['system_12',['ESP32 Traffic Light - Interrupt System',['../index.html',1,'']]],
+  ['system_20diagrams_13',['System Diagrams',['../index.html#diagrams',1,'']]]
 ];

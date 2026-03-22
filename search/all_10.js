@@ -1,0 +1,20 @@
+var searchData=
+[
+  ['tickcounter_0',['tickCounter',['../classTrafficLight.html#a4f6a8ddb327856e33cd77364f4e2a0c5',1,'TrafficLight']]],
+  ['timer0_1',['timer0',['../main_8cpp.html#a25ee574a82660d392759061e40e6afa6',1,'main.cpp']]],
+  ['timerflag_2',['timerFlag',['../main_8cpp.html#a6aeef4801eda4cb5bc8aaecc65a58922',1,'main.cpp']]],
+  ['timerintcount_3',['timerIntCount',['../main_8cpp.html#a262524f2013a6b9d02bf5deb5a571d19',1,'main.cpp']]],
+  ['timermux_4',['timerMux',['../main_8cpp.html#adedb0f4641b7b425776dbacb23a96576',1,'main.cpp']]],
+  ['tl_5fa_5fgreen_5',['TL_A_GREEN',['../group__pins.html#ga6788ca3974ac5d0489ac8c91be4c2bd1',1,'main.cpp']]],
+  ['tl_5fa_5fred_6',['TL_A_RED',['../group__pins.html#ga486c3f870408529fd5dbf0ef87108e1e',1,'main.cpp']]],
+  ['tl_5fa_5fyellow_7',['TL_A_YELLOW',['../group__pins.html#ga023aa335726ef9763121de708ed8718d',1,'main.cpp']]],
+  ['tl_5fb_5fgreen_8',['TL_B_GREEN',['../group__pins.html#ga1ff4ccad9959eab7d07cce386d38763a',1,'main.cpp']]],
+  ['tl_5fb_5fred_9',['TL_B_RED',['../group__pins.html#ga76778bf9d9acee815a3783c1d347881f',1,'main.cpp']]],
+  ['tl_5fb_5fyellow_10',['TL_B_YELLOW',['../group__pins.html#ga8d3a772c06f93acaebd8eb493b80ebda',1,'main.cpp']]],
+  ['traffic_20light_20interrupt_20system_11',['ESP32 Traffic Light - Interrupt System',['../index.html',1,'']]],
+  ['trafficlight_12',['trafficlight',['../classTrafficLight.html#a5e1f16b02a6f602591110acfc421b534',1,'TrafficLight::TrafficLight()'],['../classTrafficLight.html',1,'TrafficLight']]],
+  ['trafficlighta_13',['trafficLightA',['../main_8cpp.html#a0e2d38a7aac46ee1feb87ddd2f804b34',1,'main.cpp']]],
+  ['trafficlightb_14',['trafficLightB',['../main_8cpp.html#adc4af2d79f8d841a4278a8dc4ba9af72',1,'main.cpp']]],
+  ['trafficlightstate_15',['TrafficLightState',['../main_8cpp.html#a729c9ccc12f3b6c0fe51cd6be122c811',1,'main.cpp']]],
+  ['trig_5fpin_16',['TRIG_PIN',['../group__pins.html#ga8eab89acd7dcb0e77e7b00d1749022a6',1,'main.cpp']]]
+];
