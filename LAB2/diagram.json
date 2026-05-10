@@ -1,0 +1,48 @@
+{
+	"version": 1,
+	"author": "Ivan Bencic",
+	"editor": "wokwi",
+	"parts": [
+		{
+			"type": "wokwi-esp32-devkit-v1",
+			"id": "esp",
+			"top": -50,
+			"left": 0,
+			"attrs": {}
+		},
+		{
+			"type": "wokwi-pushbutton",
+			"id": "btnMail",
+			"top": -200,
+			"left": -210,
+			"attrs": { "color": "green", "label": "MAIL" }
+		},
+		{
+			"type": "wokwi-led",
+			"id": "ledMail",
+			"top": -100,
+			"left": 280,
+			"attrs": { "color": "red", "label": "MAIL" }
+		},
+		{
+			"type": "wokwi-led",
+			"id": "ledAwake",
+			"top": -40,
+			"left": 280,
+			"attrs": { "color": "yellow", "label": "AWAKE" }
+		}
+	],
+	"connections": [
+		["esp:TX0", "$serialMonitor:RX", "", []],
+		["esp:RX0", "$serialMonitor:TX", "", []],
+
+		["esp:D33", "btnMail:1.r", "purple", []],
+		["btnMail:2.r", "esp:GND.1", "black", []],
+
+		["esp:D26", "ledMail:A", "red", []],
+		["ledMail:C", "esp:GND.2", "black", []],
+
+		["esp:D14", "ledAwake:A", "gold", []],
+		["ledAwake:C", "esp:GND.2", "black", []]
+	]
+}

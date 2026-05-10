@@ -1,0 +1,300 @@
+Upravljanje potrošnjom energije mikrokontrolera
+Cilj zadatka
+
+Proučiti mogućnosti smanjenja potrošnje energije na odabranom mikrokontroleru korištenjem različitih režima mirovanja (sleep modes). Razviti program koji efikasno upravlja energetskim režimima, omogućujući mikrokontroleru da pređe u niskopotrošni način rada dok nije aktivan.
+
+Naglasak je na razumijevanju:
+
+    događajno vođenog rada (event-driven)
+    periodičkog buđenja (periodic wake-up)
+    upravljanja stanjem sustava
+    ograničenja simulacijskog okruženja
+
+Naglasak je na logici upravljanja energijom, a ne na preciznom mjerenju potrošnje (zbog ograničenja simulatora Wokwi). Razviti program koji efikasno upravlja energetskim režimima, omogućujući mikrokontroleru da pređe u niskopotrošni način rada dok nije aktivan.
+Okruženje
+
+Obavezno: Wokwi simulator Podržane platforme:
+
+    Arduino (AVR)
+    ESP32 (preporučeno)
+
+Opcionalno: stvarni sklop (mikrokontroler + senzori + mjerenje potrošnje)
+Implementacija režima mirovanja
+1. Konfiguracija režima mirovanja
+
+Odabrani mikrokontroler treba biti konfiguriran da koristi odgovarajući režim mirovanja između aktivnih perioda rada.
+
+Preporučene biblioteke:
+
+    avr/sleep.h za AVR mikrokontrolere
+    LowPower.h za Arduino
+    esp_sleep.h za ESP32/ESP8266
+
+2. Osnovna funkcionalnost
+
+Implementirati osnovni zadatak koji uključuje:
+
+    izvršavanje funkcije (npr. LED svijetli 3–5 sekundi)
+    ulazak u režim mirovanja (sleep mode)
+    buđenje sustava (wake-up)
+    ponavljanje ciklusa
+
+Program organizirati u odvojene cjeline:
+
+    aktivna faza rada
+    ulazak u sleep
+    obrada buđenja
+
+    Nije dopušteno koristiti samo delay() kao jedini mehanizam upravljanja vremenom.
+
+Uvjeti za buđenje iz režima mirovanja
+
+Podržati jedan ili više mehanizama buđenja:
+
+    eksterni prekid (external interrupt)
+    timer prekid (timer interrupt)
+
+ESP mikrokontroleri dodatno podržavaju:
+
+    timer buđenje (esp_sleep_enable_timer_wakeup())
+    GPIO buđenje
+    touch buđenje
+    ULP koprocesor (ULP coprocessor)
+
+Efikasno upravljanje energijom
+
+    mikrokontroler treba ući u sleep odmah nakon završetka zadatka
+
+    prije ulaska:
+        onemogućiti nepotrebne periferije
+        po potrebi sačuvati stanje sustava
+
+    nakon buđenja:
+        obnoviti potrebne module
+        nastaviti izvršavanje
+
+Istraživanje različitih razina režima mirovanja
+Za AVR / Arduino:
+
+    Idle
+    Power-down
+    Standby
+
+Za ESP32:
+
+    Light Sleep
+    Deep Sleep
+    Hibernation
+
+Usporediti modove prema:
+
+    logičkom ponašanju sustava
+    vremenu buđenja
+    mogućnostima konfiguracije
+
+    Napomena: U Wokwi simulatoru nije moguće precizno mjeriti stvarnu potrošnju energije.
+
+Dokumentacija i ispitivanje
+
+U izvještaju navesti:
+
+    korištene režime mirovanja
+    način buđenja sustava
+    opis implementacije
+    ograničenja simulacije
+
+Obavezan zaključak:
+
+    Implementacija prikazuje logiku upravljanja energijom, ali ne omogućuje stvarnu procjenu potrošnje energije.
+
+Wokwi simulator
+
+    omogućuje testiranje logike sleep/wake ciklusa
+    podrška za napredne režime mirovanja je ograničena
+    ne simulira stvarnu potrošnju energije
+
+Za stvarnu analizu preporučuje se rad na sklopovskoj (hardverskoj) platformi.
+Podzadatci
+1. Varijanta: Pametni poštanski sandučić (event-driven)
+Scenarij
+
+Uređaj je većinu vremena u mirovanju. Budi se isključivo kada se dogodi događaj (npr. pritisak tipkala).
+Zadatak
+
+    koristiti najdublji režim mirovanja
+        AVR: Power-down
+        ESP32: Deep Sleep
+
+    omogućiti buđenje putem vanjskog prekida
+
+    nakon buđenja:
+        evidentirati događaj
+        izvršiti kratku obradu
+        vratiti se u sleep
+
+Izazov: odbijanje kontakta (debouncing)
+
+Mehanički prekidači ne generiraju idealan signal, već kratkotrajne oscilacije (više brzih promjena stanja) prilikom aktivacije.
+
+Posljedica:
+
+    može doći do višestrukog okidanja prekida (multiple interrupts)
+    sustav se može više puta probuditi
+    povećava se potrošnja energije
+
+Zahtjev
+
+Potrebno je osigurati da se jedan fizički događaj interpretira kao jedan logički događaj.
+
+Implementirati jedno od rješenja:
+
+    programsko filtriranje (software debounce)
+    vremensko ignoriranje ponovljenih prekida
+    provjera stabilnog stanja ulaznog pina
+
+U izvještaju kratko objasniti:
+
+    uzrok problema
+    odabrano rješenje
+    utjecaj na energetsku učinkovitost
+
+2. Varijanta: Datalogger okoliša (periodičko buđenje)
+Scenarij
+
+Uređaj periodički mjeri temperaturu i vlagu.
+Zadatak
+
+    koristiti buđenje pomoću tajmera (timer wake-up)
+    simulirati očitanja senzora
+    spremiti zadnjih 10 mjerenja
+
+ESP32
+
+    koristiti RTC memoriju (RTC_DATA_ATTR)
+
+Arduino
+
+    koristiti EEPROM ili simulirano spremište
+
+Obrada podataka
+
+    nakon 10 mjerenja:
+        ispisati podatke
+        resetirati spremnik
+
+Dodatni zadatak (analiza)
+
+Izračunati teorijsko trajanje baterije:
+
+    pretpostaviti bateriju: 2500 mAh
+    procijeniti prosječnu potrošnju
+
+Prosječna struja:
+
+I_avg = (I_active × t_active + I_sleep × t_sleep) / ukupno vrijeme
+Predaja rada
+
+Rješenje zadatka predaje se putem poveznice na GitHub repozitorij.
+
+Repozitorij treba biti uredno organiziran tako da se lako može pregledati i pokrenuti.
+Obavezna struktura
+
+Lab2/
+
+├── Lab2.md
+
+├── src/
+
+├── docs/
+
+├── wokwi/
+
+    ├── diagram.json
+
+    ├── wokwi.toml
+
+    └── main.ino (ili main.cpp)
+
+└── rezultat/
+Što treba sadržavati
+
+    Lab2.md
+    Kratak opis rješenja + link na Wokwi
+
+    src/
+    glavni kôd programa
+
+    docs/
+    izvještaj, dijagram stanja i analiza
+
+    wokwi/
+    datoteke za pokretanje simulacije (diagram.json, wokwi.toml, kôd)
+
+    rezultat/
+    dokaz rada (serijski ispis, screenshot)
+
+Wokwi simulacija
+
+Rješenje mora biti dostupno u Wokwi simulatoru.
+
+Potrebno je:
+
+    staviti link na projekt u lAB2.md
+    uključiti Wokwi datoteke u repozitorij
+
+    Samo link nije dovoljan.
+
+Dokaz rada
+
+U repozitoriju treba biti vidljivo da rješenje radi.
+
+Minimalno:
+
+    serial_output.txt s ispisom koji pokazuje:
+        sleep
+        buđenje
+        izvršavanje
+
+Po želji:
+
+    screenshot iz Wokwi
+
+Sažetak
+
+U izvještaju dodati kratku tablicu:
+Stavka 	Odgovor
+Platforma 	ESP32 / Arduino
+Varijanta 	A / B
+Sleep mode 	
+Buđenje 	
+Čuvanje stanja 	
+Debouncing 	
+Wokwi link 	
+Napomena za ESP korisnike
+
+Ako koristite ESP8266 ili ESP32:
+
+    Prednost je što nude integrirane funkcije za sleep i detaljne kontrole buđenja
+    Dokumentacija: ESP32 Sleep Modes – Espressif Docs
+    Primjeri: Arduino ESP32 esp_sleep_enable_timer_wakeup(), esp_deep_sleep_start() itd.
+
+Završna napomena
+
+Kôd neka bude čitljiv i modularan. Svaka faza (aktivna funkcija, ulazak u sleep, buđenje) treba biti jasno razdvojena. Obavezno komentirati ključne dijelove.
+WokWI simulator
+
+Nije precizan za ozbiljno ipitivanje napajanja, optimizaciju sleep modova i stvarnu procjenu potrošnje energije. Za takve potrebe, preporučuje se rad u stvarnom okruženju s odgovarajućim mjeračima energije ili upotreba alata specifičnih za ispitivanje potrošnje energije u stvarnim uvjetima.
+
+    Napredniji alati:
+
+    ARM Energy Profiler https://developer.arm.com/documentation/102732/1910/Energy-profiling
+
+    ARM nudi vlastite alate za analizu potrošnje energije, uključujući ARM Energy Profiler. Ovaj alat pomaže u vizualizaciji potrošnje energije tijekom razvoja aplikacija. Pruža uvid u potrošnju energije temeljem vremenskih intervala u aplikaciji, što omogućava optimizaciju na temelju stvarnih podataka.
+
+    Ključne značajke:
+
+    Pruža grafove za praćenje potrošnje energije po različitim fazama.
+
+    Integracija s IDE-ovima poput Keil uVision i ARM Development Studio.
+
+    Mogućnost simulacije rada mikrokontrolera i predviđanja potrošnje energije za različite operacije.
