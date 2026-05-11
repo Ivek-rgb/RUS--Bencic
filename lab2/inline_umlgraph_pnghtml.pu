@@ -1,0 +1,85 @@
+@startuml inline_umlgraph_1.png
+title Environment Datalogger - State Machine
+
+state "Acquisition cycle" as Cycle {
+  state "READ"           as Read    : DHT22 readTemperature\n+ readHumidity
+  state "BUFFERED"       as Buf     : append to ring buffer\nbufferCount++
+  state "ACTIVITY PULSE" as Pulse   : ACTIVITY LED on\nfor 200 ms
+  state "SLEEP"          as Sleep   : AWAKE LED off\nemulated (demo)\nor Deep Sleep (HW)
+
+  [*] --> Read
+  Read --> Buf     : valid sample
+  Read --> Pulse   : NaN twice in a row\n(skip, log [ERROR])
+  Buf  --> Pulse
+  Pulse --> Sleep  : bufferCount < 10
+}
+
+state "DUMP" as Dump : print 10 samples\nas table\nbufferCount = 0
+Cycle --> Dump   : bufferCount == 10
+Dump  --> Sleep  : ready for next cycle
+Sleep --> Read   : timer wake\n(every SLEEP_INTERVAL)
+
+note right of Sleep
+  Wokwi demo (src/main.cpp):
+    delay(3000) - emulated sleep.
+  Real HW (src/archive/main1.cpp):
+    esp_deep_sleep_start() with
+    60-second timer wake.
+end note
+@enduml
+@startuml inline_umlgraph_2.png
+title Datalogger - Program Flow on Real Hardware
+
+start
+:Power on or wake from Deep Sleep;
+:Serial.begin(115200);
+:bootCount++;
+if (wake cause == TIMER?) then (yes)
+  :uptimeS += SLEEP_INTERVAL_S;
+else (cold boot)
+  :uptimeS = 0;
+endif
+:Print banner + wake cause;
+:Init LEDs + DHT22;
+
+partition "Acquisition" {
+  :ACTIVITY LED -> HIGH;
+  :readDht() with one retry;
+  if (valid sample?) then (yes)
+    :append to buffer\n[uptimeS, t, h];
+    :totalReadings++;
+  else (no)
+    :log [ERROR];
+  endif
+  :ACTIVITY LED -> LOW;
+}
+
+if (bufferCount >= 10?) then (yes)
+  :dumpAndReset();
+else (no)
+endif
+
+:AWAKE LED -> LOW;
+:esp_sleep_enable_timer_wakeup(60s);
+:esp_deep_sleep_start();
+note right: never returns
+
+stop
+@enduml
+@startuml inline_umlgraph_3.png
+title RTC slow-memory layout
+
+rectangle "RTC_DATA_ATTR Reading buffer[10]" as Buf #d6eaff
+rectangle "RTC_DATA_ATTR bufferCount  : uint8_t"  as BC  #d6eaff
+rectangle "RTC_DATA_ATTR totalReadings: uint32_t" as TR  #d6eaff
+rectangle "RTC_DATA_ATTR bootCount    : uint32_t" as BoC #d6eaff
+rectangle "RTC_DATA_ATTR uptimeS      : uint32_t" as UpS #d6eaff
+
+Buf -[hidden]down-> BC
+BC  -[hidden]down-> TR
+TR  -[hidden]down-> BoC
+BoC -[hidden]down-> UpS
+
+note right of Buf : Survives Deep Sleep\nbut NOT a hardware reset
+note right of UpS : Accumulator that timestamps\nsamples without an RTC
+@enduml
