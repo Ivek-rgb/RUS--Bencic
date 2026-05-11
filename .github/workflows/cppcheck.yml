@@ -29,20 +29,34 @@ jobs:
       - name: Install cppcheck
         run: sudo apt-get update && sudo apt-get install -y cppcheck
 
-      # Run cppcheck
-      # Customize the command based on your project structure and needs
+      # Run cppcheck over every LAB directory present in the repo, so adding
+      # a new lab (LAB3, ...) only requires creating the folder.
       - name: Run cppcheck analysis
         run: |
-          if [ -d "LAB1" ]; then
-            cppcheck --enable=all --inconclusive --std=c++17  --checkers-report=cppcheck-report.txt --verbose  $(find LAB1 -name '*.cpp') > cppcheck-report1.txt 2>&1 #--suppress=missingIncludeSystem --suppress=unusedFunction 
-            echo "--- Cppcheck Report ---"
-            cat cppcheck-report.txt
-            echo "--- End Report ---"
-          else
-            echo "Directory LAB1 does not exist!"
+          : > cppcheck-report.txt
+          shopt -s nullglob
+          found_any=0
+          for lab in LAB1 LAB2; do
+            if [ -d "$lab" ]; then
+              found_any=1
+              sources=$(find "$lab" -name '*.cpp')
+              if [ -z "$sources" ]; then
+                echo "=== $lab: no .cpp sources, skipping ===" >> cppcheck-report.txt
+                continue
+              fi
+              echo "=== cppcheck $lab ===" >> cppcheck-report.txt
+              cppcheck --enable=all --inconclusive --std=c++17 --verbose \
+                       $sources >> cppcheck-report.txt 2>&1 || true
+              echo >> cppcheck-report.txt
+            fi
+          done
+          if [ "$found_any" = "0" ]; then
+            echo "No LAB directories found"
             exit 1
           fi
-# Analyze all files in the LAB1 directory
+          echo "--- Cppcheck Report ---"
+          cat cppcheck-report.txt
+          echo "--- End Report ---"
 
       # Upload cppcheck report as artifact
       - name: Upload cppcheck report
