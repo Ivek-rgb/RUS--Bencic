@@ -128,6 +128,88 @@ For an actual energy analysis the firmware would have to be flashed to the physi
 
 ---
 
+## Theoretical Battery Life Analysis
+
+The lab brief asks for an analytical estimate of battery life using the formula:
+
+```
+I_avg = (I_active * t_active + I_sleep * t_sleep) / t_total
+```
+
+Wokwi cannot measure current, so the numbers below are *datasheet-derived
+estimates* for the **real-hardware variant** (`src/archive/main1.cpp`, 60 s
+period, full Deep Sleep between cycles). They are not measurements.
+
+### Assumed per-cycle timings (real-HW variant)
+
+| Phase                         | Duration   | Notes                                                                 |
+|-------------------------------|------------|-----------------------------------------------------------------------|
+| Boot from Deep Sleep + setup  | ~0.3 s     | Bootloader + Arduino-ESP32 init                                       |
+| DHT22 settling + read + retry | ~0.4 s     | DHT22 requires ~250 ms idle between reads                             |
+| Append + (every 10th) dump    | ~0.3 s     | Serial transmit at 115200 baud                                        |
+| **`t_active` (total)**        | **~1.0 s** | Per 60 s cycle                                                        |
+| `t_sleep`                     | ~59 s      | `esp_deep_sleep_start()` until timer wake                             |
+| `t_total`                     | 60 s       |                                                                       |
+
+### Assumed current draws
+
+| Quantity        | Bare ESP32-WROOM-32 module | DOIT DevKit V1 (board as-is)   | Source / rationale                            |
+|-----------------|----------------------------|--------------------------------|-----------------------------------------------|
+| `I_active`      | ~80 mA                     | ~100 mA                        | CPU 240 MHz, radios off, +DHT22 + 2 LEDs      |
+| `I_sleep`       | ~10 µA                     | ~20 mA                         | DevKit's CP2102 + AMS1117 LDO dominate sleep  |
+| Battery         | 2500 mAh                   | 2500 mAh                       | Per spec                                      |
+
+The DOIT DevKit value for `I_sleep` is dominated by the on-board CP2102 USB-UART
+bridge (~10 mA quiescent) and the AMS1117-3.3 LDO quiescent (~5-10 mA). These
+parts are why "ESP32 dev boards drain a battery in days" is a common pitfall;
+on a stripped-down custom PCB the figure drops to ~10 µA.
+
+### Calculation - bare ESP32-WROOM module
+
+```
+I_avg = (80 mA * 1 s + 0.010 mA * 59 s) / 60 s
+      = (80 + 0.59) / 60
+      = 80.59 / 60
+      ~= 1.343 mA
+
+Battery life = 2500 mAh / 1.343 mA ~= 1862 h ~= 77.6 days (~2.5 months)
+```
+
+### Calculation - DOIT DevKit V1 (no hardware mods)
+
+```
+I_avg = (100 mA * 1 s + 20 mA * 59 s) / 60 s
+      = (100 + 1180) / 60
+      = 1280 / 60
+      ~= 21.33 mA
+
+Battery life = 2500 mAh / 21.33 mA ~= 117 h ~= 4.9 days
+```
+
+### What the gap means
+
+The ~15x gap between the two figures is the cost of running on a dev board
+rather than a custom PCB. The firmware achieves the same logical sleep cycle in
+both cases - what changes is the supporting circuitry. For a real deployment
+either remove the USB chip and use a more efficient LDO/regulator, or move to a
+purpose-built board around the ESP32-WROOM module.
+
+### What this analysis does *not* prove
+
+- It is not a measurement. Real `I_active` varies with peripheral activity,
+  Wi-Fi/BT (disabled here, but worth ~120 mA when on), and CPU frequency.
+- It assumes the timer wake fires exactly on schedule and that no error retry
+  loops extend `t_active`. A DHT22 NaN-retry burst would raise `t_active`.
+- Battery self-discharge (typ. 2-3 % / month for Li-ion) is ignored - it
+  becomes the dominant loss in the bare-module case.
+
+As required by the spec, the firmware demonstrates the *logic* of power
+management; a real consumption figure requires hardware measurement (e.g.
+[ARM Energy Profiler](https://developer.arm.com/documentation/102732/1910/Energy-profiling)
+or a low-side current shunt).
+
+---
+
 ## Lab Report Summary Table
 
 | Item               | Answer                                                                                                                            |
@@ -146,21 +228,36 @@ For an actual energy analysis the firmware would have to be flashed to the physi
 
 ```
 LAB2/
-├── README.md                  - this file
+├── Lab2.md                    - lab document required by the assignment spec
+├── README.md                  - this file (full project documentation)
 ├── requirements.txt           - lab assignment text (Croatian)
 ├── platformio.ini             - two PlatformIO envs: Wokwi demo + real HW
 ├── diagram.json               - Wokwi circuit (ESP32 + DHT22 + 2 LEDs)
-├── wokwi.toml                 - Wokwi firmware paths
+├── wokwi.toml                 - Wokwi firmware paths (used by VS Code ext)
 ├── Doxyfile                   - Doxygen + PlantUML config
 ├── docs/
 │   ├── mainpage.dox           - Doxygen mainpage + embedded PlantUML
 │   ├── state_machine.puml     - standalone state machine
 │   └── program_flow.puml      - standalone program flow (HW variant)
-└── src/
-    ├── main.cpp               - Wokwi demo (emulated sleep, plain RAM buffer)
-    └── archive/
-        └── main1.cpp          - Real HW (Deep Sleep, RTC_DATA_ATTR buffer)
+├── src/                       - PlatformIO source root (authoritative)
+│   ├── main.cpp               - Wokwi demo (emulated sleep, RTC buffer)
+│   └── archive/
+│       └── main1.cpp          - Real HW (Deep Sleep, RTC_DATA_ATTR buffer)
+├── wokwi/                     - spec-mandated simulator bundle (mirror)
+│   ├── README.md              - explains this is a mirror of root files
+│   ├── diagram.json           - copy of root diagram.json
+│   ├── wokwi.toml             - copy of root wokwi.toml (rel. paths fixed)
+│   ├── main.cpp               - copy of src/main.cpp
+│   └── archive/
+│       └── main1.cpp          - copy of src/archive/main1.cpp
+└── results/                   - proof-of-execution artefacts
+    └── serial_output.txt      - captured serial log (sleep / wake / read)
 ```
+
+> The `wokwi/` folder is required by `requirements.txt`'s mandated structure.
+> Its contents are *duplicates* of the authoritative files at the repository
+> root and under `src/`, not the working copies; the PlatformIO build still
+> consumes `src/main.cpp` / `src/archive/main1.cpp`.
 
 ---
 

@@ -1,0 +1,49 @@
+{
+	"version": 1,
+	"author": "Ivan Bencic",
+	"editor": "wokwi",
+	"parts": [
+		{
+			"type": "wokwi-esp32-devkit-v1",
+			"id": "esp",
+			"top": -50,
+			"left": 0,
+			"attrs": {}
+		},
+		{
+			"type": "wokwi-dht22",
+			"id": "dht",
+			"top": -220,
+			"left": -210,
+			"attrs": { "temperature": "22.5", "humidity": "47.0" }
+		},
+		{
+			"type": "wokwi-led",
+			"id": "ledAct",
+			"top": -100,
+			"left": 280,
+			"attrs": { "color": "red", "label": "ACTIVITY" }
+		},
+		{
+			"type": "wokwi-led",
+			"id": "ledAwake",
+			"top": -40,
+			"left": 280,
+			"attrs": { "color": "yellow", "label": "AWAKE" }
+		}
+	],
+	"connections": [
+		["esp:TX0", "$serialMonitor:RX", "", []],
+		["esp:RX0", "$serialMonitor:TX", "", []],
+
+		["dht:VCC", "esp:3V3",   "red",   []],
+		["dht:GND", "esp:GND.1", "black", []],
+		["dht:SDA", "esp:D15",   "green", []],
+
+		["esp:D26",  "ledAct:A",   "red",   []],
+		["ledAct:C", "esp:GND.2",  "black", []],
+
+		["esp:D14",    "ledAwake:A", "gold",  []],
+		["ledAwake:C", "esp:GND.2",  "black", []]
+	]
+}
