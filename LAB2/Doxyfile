@@ -1,0 +1,46 @@
+# Doxyfile - ESP32 Environment Datalogger project
+# Generate documentation: doxygen Doxyfile
+
+PROJECT_NAME           = "ESP32 Environment Datalogger - Sleep Modes"
+PROJECT_NUMBER         = "1.0"
+PROJECT_BRIEF          = "Periodic-wake datalogger demonstrating power management on ESP32 - RUS Lab 2"
+OUTPUT_DIRECTORY       = docs
+OUTPUT_LANGUAGE        = English
+
+# Input files
+# Both the Wokwi demo (src/main.cpp) and the real-hardware variant
+# (src/archive/main1.cpp) are documented; the mainpage stitches them
+# together with the design rationale and PlantUML diagrams.
+INPUT                  = src/main.cpp src/archive/main1.cpp docs/mainpage.dox
+FILE_PATTERNS          = *.cpp *.h *.dox
+RECURSIVE              = YES
+
+# Extraction
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+
+# Output formats
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+
+# Diagrams - PlantUML integration
+HAVE_DOT               = NO
+PLANTUML_JAR_PATH      = /usr/share/plantuml/plantuml.jar
+PLANTUML_INCLUDE_PATH  = docs
+IMAGE_PATH             = docs
+
+# Optimization for C++
+OPTIMIZE_OUTPUT_FOR_C  = NO
+
+# Grouping
+GROUP_GRAPHS           = YES
+SORT_MEMBER_DOCS       = NO
+
+# Style
+HTML_COLORSTYLE_HUE    = 220
+FULL_PATH_NAMES        = NO
+
+# Extra pages
+USE_MDFILE_AS_MAINPAGE =

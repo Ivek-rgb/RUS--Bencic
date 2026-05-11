@@ -1,22 +1,44 @@
 /**
  * @file main.cpp
- * @brief RUS Lab 2 - Variant 1: Pametni postanski sanducic (event-driven)
+ * @brief RUS Lab 2 - Variant 2: Environment Datalogger (Wokwi demo with real Deep Sleep)
  *
- * Scenario:
- *   The device sleeps almost all the time. When "mail" arrives (modeled
- *   as a pushbutton press) an external interrupt wakes the ESP32 from
- *   Deep Sleep. Once awake the firmware:
- *     1) logs the event to the serial monitor,
- *     2) performs a short processing step (increment counter stored in
- *        RTC memory, brief LED pulse),
- *     3) immediately returns to Deep Sleep.
+ * Wokwi-friendly variant of the periodic-wake environment datalogger.
+ * The matching pure-hardware sketch (true ESP32 Deep Sleep, longer
+ * interval, no emulated phase) lives in src/archive/main1.cpp.
  *
- *   Sleep mode  : ESP32 Deep Sleep (deepest mode required by the brief)
- *   Wake source : External interrupt EXT0 on the button pin (active LOW)
- *   Debouncing  : (a) on wake, sample pin until stably LOW for DEBOUNCE_MS;
- *                 (b) min-gap timer rejects events too close to previous;
- *                 (c) before re-arming sleep, wait until pin is stably HIGH
- *                     so a still-held button cannot re-trigger us.
+ * What the firmware does, end-to-end:
+ *   1. Read temperature + humidity from a DHT22 on GPIO15, append the
+ *      sample to a ring buffer of size BUFFER_CAPACITY (10, per spec).
+ *   2. When the buffer fills, print all 10 samples in a single table
+ *      dump and clear the buffer.
+ *   3. Run an "emulated sleep" window (SLEEP_INTERVAL_MS via delay()):
+ *      AWAKE LED off, serial quiet. This is the part the audience sees.
+ *   4. Call the real esp_deep_sleep_start() for a brief
+ *      REAL_DEEP_SLEEP_MS at the end of every cycle. The chip actually
+ *      enters Deep Sleep, the simulator resets it on wake, and the
+ *      cycle repeats from setup(). RTC memory (RTC_DATA_ATTR) carries
+ *      the buffer + counters across the reset, exactly as on real
+ *      hardware.
+ *
+ * Why hybrid (emulated + real)?
+ *   Calling esp_deep_sleep_start() for the full visible interval would
+ *   make the demo noisy because Wokwi reprints the boot banner on every
+ *   wake. Calling only delay() never exercises the real Deep Sleep API.
+ *   The hybrid keeps the audience-visible "sleep" phase clean while
+ *   still proving the real ESP32 power-management path works in
+ *   simulation: every cycle ends with a genuine esp_deep_sleep_start()
+ *   call, a chip reset, and a one-line [BOOT #n via TIMER] message
+ *   followed immediately by the next reading.
+ *
+ *   Light Sleep is deliberately NOT used: Arduino-ESP32 ships without
+ *   CONFIG_PM_ENABLE, so esp_light_sleep_start() from a user task
+ *   desyncs the FreeRTOS idle-task spinlocks on the other core and
+ *   reliably asserts inside spinlock_acquire() on the second cycle.
+ *
+ * Hardware (see diagram.json):
+ *   - DHT22 on GPIO15 (data) - VCC / GND / SDA
+ *   - AWAKE LED (yellow) on GPIO14 - on while CPU is awake
+ *   - ACTIVITY LED (red) on GPIO26 - pulses on every sensor read
  *
  * @author Ivan Bencic
  * @date 2026
@@ -24,217 +46,213 @@
 
 #include <Arduino.h>
 #include <esp_sleep.h>
-#include "driver/rtc_io.h"
+#include <DHT.h>
 
 /* ------------------------------------------------------------------------- */
 /*  Pin map                                                                  */
 /* ------------------------------------------------------------------------- */
-// GPIO33 is RTC_GPIO_8, so it is allowed as an EXT0 wake source.
-// EXT0 only works on RTC-capable GPIOs, hence the strict pin choice.
-#define BTN_PIN        GPIO_NUM_33   // mail-arrival switch (active LOW)
-#define LED_MAIL_PIN   GPIO_NUM_26   // pulses briefly to acknowledge an event
-#define LED_AWAKE_PIN  GPIO_NUM_14   // lit while CPU is awake -> visualises sleep/wake
+#define DHT_PIN        15            // single-wire data line to the DHT22
+#define DHT_TYPE       DHT22
+#define LED_ACT_PIN    26            // brief pulse on every sensor read
+#define LED_AWAKE_PIN  14            // lit while CPU is awake (off in sleep)
 
 /* ------------------------------------------------------------------------- */
 /*  Tunables                                                                 */
 /* ------------------------------------------------------------------------- */
-#define DEBOUNCE_MS                30   // how long the line must hold one level
-#define DEBOUNCE_TIMEOUT_MS        80   // give up if it never settles
-#define BUTTON_RELEASE_GUARD_MS   100   // must be HIGH this long before re-sleep
-#define BUTTON_RELEASE_TIMEOUT_MS 5000  // safety cap if user holds the button
-#define EVENT_LED_PULSE_MS        400   // visible blink length after each event
-#define MIN_GAP_BETWEEN_EVENTS_MS 300   // ignore wakes too close to the previous one
+#define SLEEP_INTERVAL_MS    3000    // visible emulated-sleep window per cycle
+#define REAL_DEEP_SLEEP_MS   1000    // brief actual Deep Sleep at end of each cycle
+#define BUFFER_CAPACITY        10    // matches the lab spec
+#define ACTIVITY_PULSE_MS     200    // visible blink length per sensor read
+#define DHT_RETRY_DELAY_MS    100    // settle time between DHT read retries
 
 /* ------------------------------------------------------------------------- */
-/*  State that survives deep sleep                                           */
+/*  Storage                                                                  */
 /* ------------------------------------------------------------------------- */
-// RTC_DATA_ATTR places the variable in the RTC slow memory, which stays
-// powered during Deep Sleep. After every wake the firmware boots from
-// scratch (setup() runs again), so anything we want to remember across
-// sleep cycles MUST live here.
-RTC_DATA_ATTR uint32_t mailCount        = 0;   // total accepted mail events
-RTC_DATA_ATTR uint32_t bootCount        = 0;   // total CPU boots (incl. wake-ups)
-RTC_DATA_ATTR uint64_t lastEventEpochUs = 0;   // timestamp of previous event (us)
+struct Reading {
+    uint32_t timestampMs;    // monotonically-increasing-across-cycles timestamp
+    float    temperatureC;
+    float    humidityPct;
+};
+
+DHT dht(DHT_PIN, DHT_TYPE);
+
+// RTC_DATA_ATTR places these in the RTC slow memory which is retained
+// across the Deep Sleep reset at the end of every cycle. Without this
+// qualifier the buffer and counters would be reset on every wake.
+RTC_DATA_ATTR static Reading  buffer[BUFFER_CAPACITY];
+RTC_DATA_ATTR static uint8_t  bufferCount      = 0;   // valid entries currently in buffer
+RTC_DATA_ATTR static uint32_t totalReadings    = 0;   // accepted samples ever
+RTC_DATA_ATTR static uint32_t dumpsCompleted   = 0;   // number of times the buffer was flushed
+RTC_DATA_ATTR static uint32_t bootCount        = 0;   // CPU boots since power-on
+RTC_DATA_ATTR static uint32_t accumulatedMs    = 0;   // cumulative cycle time across boots
 
 /* ------------------------------------------------------------------------- */
 /*  Helpers                                                                  */
 /* ------------------------------------------------------------------------- */
 
 /**
- * @brief Print why the chip just woke up.
+ * @brief Acquire a single (temperature, humidity) sample from the DHT22.
  *
- * Useful for the lab report's serial_output.txt: every line in the log
- * starts with the wake cause so the SLEEP -> WAKE -> EXEC -> SLEEP
- * cycle is clearly visible to the reviewer.
+ * DHT22 transactions are flaky by design (single-wire timing-sensitive
+ * protocol over a slow bus). On a NaN result we wait DHT_RETRY_DELAY_MS
+ * and try once more; two failures in a row are reported and skipped.
+ *
+ * @return true if a valid sample was written through the out parameters.
  */
-void logWakeReason() {
-    esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
-    Serial.print("[WAKE] reason: ");
-    switch (cause) {
-        case ESP_SLEEP_WAKEUP_EXT0:     Serial.println("EXT0 (button)"); break;
-        case ESP_SLEEP_WAKEUP_EXT1:     Serial.println("EXT1");          break;
-        case ESP_SLEEP_WAKEUP_TIMER:    Serial.println("TIMER");         break;
-        case ESP_SLEEP_WAKEUP_TOUCHPAD: Serial.println("TOUCHPAD");      break;
-        case ESP_SLEEP_WAKEUP_ULP:      Serial.println("ULP");           break;
-        default:                        Serial.println("POWER-ON / RESET (cold boot)"); break;
+static bool readDht(float& outT, float& outH) {
+    outT = dht.readTemperature();
+    outH = dht.readHumidity();
+    if (!isnan(outT) && !isnan(outH)) return true;
+
+    delay(DHT_RETRY_DELAY_MS);
+    outT = dht.readTemperature();
+    outH = dht.readHumidity();
+    return !isnan(outT) && !isnan(outH);
+}
+
+/**
+ * @brief Print the buffered samples as a table and clear the buffer.
+ *
+ * Called automatically once the buffer reaches BUFFER_CAPACITY. The
+ * print routine is deliberately self-contained so the lab report's
+ * serial_output.txt can be produced by copying a single contiguous
+ * block of serial text.
+ */
+static void dumpAndReset() {
+    Serial.println();
+    Serial.println("================== BUFFER FULL: dumping 10 samples ==================");
+    Serial.println(" idx | uptime (ms) | temperature (C) | humidity (%) ");
+    Serial.println("-----+-------------+-----------------+--------------");
+    for (uint8_t i = 0; i < BUFFER_CAPACITY; i++) {
+        Serial.printf(" %3u | %11u | %15.1f | %12.1f\r\n",
+                      (unsigned)i,
+                      (unsigned)buffer[i].timestampMs,
+                      buffer[i].temperatureC,
+                      buffer[i].humidityPct);
+    }
+    dumpsCompleted++;
+    Serial.printf(" total samples since boot: %u   |   dumps completed: %u\r\n",
+                  (unsigned)totalReadings, (unsigned)dumpsCompleted);
+    Serial.println("=====================================================================");
+    Serial.println();
+    bufferCount = 0;
+}
+
+/**
+ * @brief One acquisition cycle: pulse ACTIVITY LED, read DHT, append.
+ */
+static void performReading() {
+    digitalWrite(LED_ACT_PIN, HIGH);
+
+    float t, h;
+    if (!readDht(t, h)) {
+        Serial.println("[ERROR] DHT22 read failed twice in a row, skipping this cycle");
+        delay(ACTIVITY_PULSE_MS);
+        digitalWrite(LED_ACT_PIN, LOW);
+        return;
+    }
+
+    // Timestamp the sample with a monotonically-increasing counter that
+    // survives the Deep Sleep reset; millis() alone resets every cycle.
+    buffer[bufferCount] = { accumulatedMs + millis(), t, h };
+    bufferCount++;
+    totalReadings++;
+
+    Serial.printf("[READ %u/%u] t=%.1f C, h=%.1f %%  (sample #%u since boot)\r\n",
+                  (unsigned)bufferCount, (unsigned)BUFFER_CAPACITY,
+                  t, h, (unsigned)totalReadings);
+
+    delay(ACTIVITY_PULSE_MS);
+    digitalWrite(LED_ACT_PIN, LOW);
+
+    if (bufferCount >= BUFFER_CAPACITY) {
+        dumpAndReset();
     }
 }
 
 /**
- * @brief Software debounce: poll the button until it has held one level
- *        continuously for stableMs (or timeoutMs elapses).
+ * @brief Emulated sleep window with audience-visible cues.
  *
- * Mechanical contacts emit dozens of fast edges during a single press.
- * By waiting for the line to stay at the requested level for a continuous
- * window we collapse that burst into a single logical event and prevent
- * the system from waking, processing and re-sleeping many times for one
- * physical action - which is exactly the "multiple interrupts" failure
- * mode described in the brief.
+ * Drives the AWAKE LED low, prints a [SLEEP] line, and blocks for the
+ * requested duration via delay(). On return, drives the AWAKE LED
+ * back high and prints a [WAKE] line. The CPU is technically not in a
+ * low-power state - see the file header for why this is acceptable for
+ * a Wokwi demo.
  */
-bool waitForStableLevel(int level, uint32_t stableMs, uint32_t timeoutMs) {
-    uint32_t start      = millis();
-    uint32_t lastChange = start;
-    int      lastRead   = digitalRead(BTN_PIN);
-    while (millis() - start < timeoutMs) {
-        int now = digitalRead(BTN_PIN);
-        if (now != lastRead) {            // an edge: restart the stable window
-            lastRead   = now;
-            lastChange = millis();
-        }
-        if (now == level && (millis() - lastChange) >= stableMs) return true;
-        delay(2);
-    }
-    return false;
-}
-
-/**
- * @brief Active phase: log the event and pulse the mail LED.
- *
- * Kept intentionally short (a few hundred milliseconds) because the
- * whole point of an event-driven design is to be awake for as little
- * time as possible. The longer we stay in active mode, the more energy
- * we waste on real hardware.
- */
-void processMailEvent() {
-    mailCount++;
-    Serial.printf("[EVENT] mail #%u logged (boot #%u)\r\n",
-                  (unsigned)mailCount, (unsigned)bootCount);
-
-    // Brief visible feedback - this is the only "real work" we do.
-    digitalWrite(LED_MAIL_PIN, HIGH);
-    delay(EVENT_LED_PULSE_MS);
-    digitalWrite(LED_MAIL_PIN, LOW);
-}
-
-/**
- * @brief Configure EXT0 wake source and enter Deep Sleep.
- *
- * Steps:
- *   1) Drain UART so the last log line actually leaves the chip.
- *   2) Turn off LEDs so they do not draw current during sleep.
- *   3) Keep the internal pull-up on the button line alive while sleeping
- *      (without it the line floats and can spuriously trigger EXT0).
- *   4) Tell the wake controller: "wake when BTN_PIN reads logic 0".
- *   5) Call esp_deep_sleep_start() - the CPU stops here. On the next
- *      wake the sketch restarts from setup().
- */
-void goToDeepSleep() {
-    Serial.println("[SLEEP] entering Deep Sleep, waiting for next event...");
+static void emulatedSleep(uint32_t ms) {
+    Serial.printf("[SLEEP] entering simulated sleep for %u ms...\r\n", (unsigned)ms);
     Serial.flush();
-
-    digitalWrite(LED_AWAKE_PIN, LOW);   // visually mark "asleep"
-    digitalWrite(LED_MAIL_PIN,  LOW);
-
-    // Force the pull-up to be active during sleep on the wake pin.
-    rtc_gpio_pullup_en(BTN_PIN);
-    rtc_gpio_pulldown_dis(BTN_PIN);
-
-    // EXT1: wake when BTN_PIN reads logic 0 (button pressed to GND).
-    esp_sleep_enable_ext0_wakeup(BTN_PIN, 0);
-
-    esp_deep_sleep_start();             // -- never returns --
+    digitalWrite(LED_AWAKE_PIN, LOW);
+    delay(ms);
+    digitalWrite(LED_AWAKE_PIN, HIGH);
+    Serial.println("[WAKE]  timer expired");
 }
 
 /* ------------------------------------------------------------------------- */
-/*  setup() = the whole program                                              */
-/*                                                                           */
-/*  Because Deep Sleep restarts the sketch on every wake, setup() acts as    */
-/*  the main entry point for each cycle: handle wake -> run task -> sleep.   */
+/*  setup() - re-runs on every Deep Sleep wake; banner only on cold boot     */
 /* ------------------------------------------------------------------------- */
 void setup() {
-    /* STEP 1 - boot bookkeeping ------------------------------------------- */
-    // Bring up serial and bump the boot counter (lives in RTC memory so it
-    // accumulates across sleep cycles, giving us a free "how many wakes
-    // since power-on" metric for the report).
     Serial.begin(115200);
-    delay(100);                         // give USB-UART bridge time to settle
+    delay(200);
+
     bootCount++;
-    Serial.println();
-    Serial.println("===== Smart Mailbox (event-driven, Deep Sleep) =====");
-    Serial.printf("Boot count: %u  |  Mail count so far: %u\r\n",
-                  (unsigned)bootCount, (unsigned)mailCount);
-    logWakeReason();
+    const esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+    const bool fromDeepSleep = (cause == ESP_SLEEP_WAKEUP_TIMER);
 
-    /* STEP 2 - re-initialise GPIOs --------------------------------------- */
-    // After Deep Sleep all non-RTC GPIO settings are lost, so pinMode()
-    // must run on every boot. We also release any RTC-IO hold from the
-    // previous sleep cycle in case it was applied.
     pinMode(LED_AWAKE_PIN, OUTPUT);
-    pinMode(LED_MAIL_PIN,  OUTPUT);
-    pinMode(BTN_PIN,       INPUT_PULLUP);
-    digitalWrite(LED_AWAKE_PIN, HIGH);  // "I am awake" indicator
-    digitalWrite(LED_MAIL_PIN,  LOW);
+    pinMode(LED_ACT_PIN,   OUTPUT);
+    digitalWrite(LED_AWAKE_PIN, HIGH);
+    digitalWrite(LED_ACT_PIN,   LOW);
 
-    /* STEP 3 - decide whether this wake is a real event ------------------ */
-    esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
-    bool isButtonWake = (cause == ESP_SLEEP_WAKEUP_EXT0);
+    dht.begin();
 
-    if (isButtonWake) {
-        /* STEP 3a - debounce: confirm the line is genuinely LOW.
-         * If the wake was caused by contact bounce noise the line will
-         * flicker back to HIGH within a few ms; we ignore those wakes. */
-        if (!waitForStableLevel(LOW, DEBOUNCE_MS, DEBOUNCE_TIMEOUT_MS)) {
-            Serial.println("[DEBOUNCE] noisy edge, ignoring this wake");
-        } else {
-            /* STEP 3b - min-gap filter: reject events that fall too close
-             * to the previous one. esp_timer_get_time() returns micro-
-             * seconds since boot; combined with the RTC-persisted last
-             * timestamp this approximates a coarse cross-sleep clock. */
-            uint64_t nowUs = esp_timer_get_time();
-            if (nowUs - lastEventEpochUs >
-                (uint64_t)MIN_GAP_BETWEEN_EVENTS_MS * 1000ULL) {
-                lastEventEpochUs = nowUs;
-                processMailEvent();     // -- the actual "task" --
-            } else {
-                Serial.println("[FILTER] event too close to previous, ignored");
-            }
-        }
+    if (fromDeepSleep) {
+        // Compact re-wake message - the audience already saw the full
+        // banner on the cold boot and does not need it on every cycle.
+        Serial.printf("\r\n[BOOT #%u via TIMER] buffer %u/%u, total samples %u, dumps %u\r\n",
+                      (unsigned)bootCount,
+                      (unsigned)bufferCount, (unsigned)BUFFER_CAPACITY,
+                      (unsigned)totalReadings, (unsigned)dumpsCompleted);
     } else {
-        // Cold start (power-on / reset). Nothing to log yet; just announce.
-        Serial.println("[INIT] cold start, arming for first event");
+        // Cold boot - reset cross-cycle counters and print the full banner.
+        accumulatedMs = 0;
+        Serial.println();
+        Serial.println("=====================================================================");
+        Serial.println(" Environment Datalogger - Wokwi demo variant (Variant 2)");
+        Serial.println(" [build: emulated visible sleep + brief real Deep Sleep]");
+        Serial.println("=====================================================================");
+        Serial.printf (" Visible (emulated) sleep : %u ms per cycle (delay)\r\n",
+                       (unsigned)SLEEP_INTERVAL_MS);
+        Serial.printf (" Real Deep Sleep at end   : %u ms (chip resets, RTC memory survives)\r\n",
+                       (unsigned)REAL_DEEP_SLEEP_MS);
+        Serial.printf (" Buffer capacity          : %u readings\r\n", (unsigned)BUFFER_CAPACITY);
+        Serial.println(" Sensor                   : DHT22 on GPIO15 (single-wire)");
+        Serial.println(" Hardware-only Deep Sleep variant: src/archive/main1.cpp.");
+        Serial.println("=====================================================================");
     }
-
-    /* STEP 4 - wait for the user to release the button -------------------- */
-    // EXT0 wakes on level == LOW. If we re-enter sleep while the button
-    // is still held, the chip wakes again immediately - effectively a
-    // busy loop. So we block here until the line is stably HIGH (or the
-    // safety timeout fires, in case something is shorted to GND).
-    if (digitalRead(BTN_PIN) == LOW) {
-        Serial.println("[GUARD] waiting for button release...");
-        waitForStableLevel(HIGH, BUTTON_RELEASE_GUARD_MS,
-                           BUTTON_RELEASE_TIMEOUT_MS);
-    }
-
-    esp_sleep_enable_timer_wakeup(10 * 1000000);
-
-    /* STEP 5 - back to Deep Sleep ----------------------------------------- */
-    goToDeepSleep();
 }
 
 /* ------------------------------------------------------------------------- */
-/*  loop() is intentionally empty                                            */
+/*  loop() - one read + visible sleep + real Deep Sleep                      */
 /*                                                                           */
-/*  setup() always ends in esp_deep_sleep_start(), so control never reaches  */
-/*  here. The Arduino runtime still requires the symbol to exist.            */
+/*  esp_deep_sleep_start() never returns, so loop() effectively runs once    */
+/*  per boot cycle: on Deep Sleep wake the chip resets and the Arduino       */
+/*  runtime calls setup() -> loop() once again. RTC_DATA_ATTR storage        */
+/*  carries the buffer + counters across the reset.                          */
 /* ------------------------------------------------------------------------- */
-void loop() { }
+void loop() {
+    performReading();
+    emulatedSleep(SLEEP_INTERVAL_MS);
+
+    // Account for the time this cycle consumed so timestamps in the
+    // table dump are monotonic across the Deep Sleep reset.
+    accumulatedMs += SLEEP_INTERVAL_MS + REAL_DEEP_SLEEP_MS;
+
+    Serial.printf("[POWER] entering real Deep Sleep for %u ms (chip will reset on wake)...\r\n",
+                  (unsigned)REAL_DEEP_SLEEP_MS);
+    Serial.flush();
+    digitalWrite(LED_AWAKE_PIN, LOW);
+
+    esp_sleep_enable_timer_wakeup((uint64_t)REAL_DEEP_SLEEP_MS * 1000ULL);
+    esp_deep_sleep_start();   // -- never returns; setup() runs again on wake --
+}
