@@ -1,11 +1,11 @@
 /**
- * @file main1.cpp
+ * @file main2.cpp
  * @brief RUS Lab 2 - Variant 2: Environment Datalogger (real ESP32 hardware)
  *
  * Hardware reference implementation of the periodic-wake environment
  * datalogger. This is the sketch that would be flashed to physical
  * ESP32 silicon for an actual deployment; the matching Wokwi-friendly
- * demo lives in src/main.cpp.
+ * Light Sleep demo lives in src/main1.cpp.
  *
  * Architecture:
  *   - The chip spends almost all its time in Deep Sleep, woken only by
@@ -38,9 +38,9 @@
  *   correct behaviour but visually noisy. It is also impossible to
  *   measure the actual power draw - that is what real hardware and an
  *   external current meter (or a tool like the ARM Energy Profiler) is
- *   for.
+ *   for. Use src/main1.cpp (Light Sleep) for live Wokwi demos.
  *
- * Hardware (same diagram.json as src/main.cpp):
+ * Hardware (same diagram.json as src/main1.cpp):
  *   - DHT22 on GPIO15 (data) - VCC / GND / SDA
  *   - AWAKE LED (yellow) on GPIO14
  *   - ACTIVITY LED (red) on GPIO26

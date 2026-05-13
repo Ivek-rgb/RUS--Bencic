@@ -8,10 +8,12 @@ OUTPUT_DIRECTORY       = docs
 OUTPUT_LANGUAGE        = English
 
 # Input files
-# Both the Wokwi demo (src/main.cpp) and the real-hardware variant
-# (src/archive/main1.cpp) are documented; the mainpage stitches them
-# together with the design rationale and PlantUML diagrams.
-INPUT                  = src/main.cpp src/archive/main1.cpp docs/mainpage.dox
+# Both Light Sleep variants are documented:
+#   - src/main1.cpp        - default build, 3-second Wokwi-demo cadence
+#   - src/archive/main2.cpp - alternative, 30-second production cadence
+# The mainpage stitches them together with the design rationale and
+# PlantUML diagrams.
+INPUT                  = src/main1.cpp src/archive/main2.cpp docs/mainpage.dox
 FILE_PATTERNS          = *.cpp *.h *.dox
 RECURSIVE              = YES
 

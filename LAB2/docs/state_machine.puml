@@ -5,7 +5,7 @@ state "Acquisition cycle" as Cycle {
   state "READ"           as Read    : DHT22 readTemperature\n+ readHumidity
   state "BUFFERED"       as Buf     : append to ring buffer\nbufferCount++
   state "ACTIVITY PULSE" as Pulse   : ACTIVITY LED on\nfor 200 ms
-  state "SLEEP"          as Sleep   : AWAKE LED off\nemulated (demo)\nor Deep Sleep (HW)
+  state "SLEEP"          as Sleep   : AWAKE LED off\nLight Sleep (main1)\nor Deep Sleep (main2)
 
   [*] --> Read
   Read --> Buf     : valid sample
@@ -17,23 +17,28 @@ state "Acquisition cycle" as Cycle {
 state "DUMP" as Dump : print 10 samples\nas table\nbufferCount = 0
 Cycle --> Dump   : bufferCount == 10
 Dump  --> Sleep  : ready for next cycle
-Sleep --> Read   : timer wake\n(every SLEEP_INTERVAL)
+Sleep --> Read   : timer wake\n(SLEEP_INTERVAL)
 
 note right of Sleep
-  Wokwi demo (src/main.cpp):
-    delay(3000) - emulated sleep,
-    CPU stays in vTaskDelay.
-  Real HW (src/archive/main1.cpp):
-    esp_deep_sleep_start() with
-    60-second timer wake.
+  Wokwi demo (src/main1.cpp):
+    esp_light_sleep_start()
+    call RETURNS on wake;
+    loop() resumes inline.
+    Interval: 3 s.
+  Real HW (src/archive/main2.cpp):
+    esp_deep_sleep_start()
+    chip RESETS on wake;
+    setup() runs again.
+    Interval: 60 s.
 end note
 
 note right of Dump
-  Buffer lives in RTC_DATA_ATTR
-  on real HW so it survives the
-  Deep Sleep reset; in the Wokwi
-  demo it is a plain global
-  because delay() preserves SRAM.
+  Light Sleep build: ring buffer
+  in plain static SRAM (preserved
+  across the sleep call).
+  Deep Sleep build: ring buffer
+  in RTC_DATA_ATTR slow memory
+  (survives the wake reset).
 end note
 
 @enduml

@@ -1,52 +1,68 @@
 @startuml program_flow
-title Environment Datalogger - Program Flow (real HW / Deep Sleep variant)
+title Environment Datalogger - Program Flow (both variants)
 
 start
-:Power on or wake from Deep Sleep;
-:Serial.begin(115200);
-:bootCount++;
-if (wake cause == TIMER?) then (yes)
-  :uptimeS += SLEEP_INTERVAL_S;
-else (cold boot)
-  :uptimeS = 0;
-endif
-:Print boot banner +\nwake cause + counters;
 
-:pinMode AWAKE, ACTIVITY LEDs;
-:AWAKE LED -> HIGH;
-:dht.begin();
-if (cold boot?) then (yes)
-  :delay 800 ms\nDHT22 settling time;
-else (no)
-endif
-
-partition "Acquisition" {
-  :ACTIVITY LED -> HIGH;
-  :readDht() with one retry;
-  if (valid?) then (yes)
-    :buffer[bufferCount] = {uptimeS, t, h};
-    :bufferCount++;
-    :totalReadings++;
-    :log [READ n/10] t=.. h=..;
-  else (no)
-    :log [ERROR] DHT failed;
+partition "Cold boot" {
+  :Power on;
+  :Serial.begin(115200);
+  if (Light Sleep build?\n(src/main1.cpp)) then (yes)
+    :WiFi.mode(WIFI_OFF);
+  else (Deep Sleep build\n(src/archive/main2.cpp))
+    :bootCount++;
+    :read wake cause;
+    if (wake cause == TIMER?) then (yes)
+      :uptimeS += SLEEP_INTERVAL_S;
+    else (cold boot)
+      :uptimeS = 0;
+    endif
   endif
-  :delay(ACTIVITY_PULSE_MS);
-  :ACTIVITY LED -> LOW;
+  :pinMode AWAKE, ACTIVITY LEDs;
+  :AWAKE LED -> HIGH;
+  :dht.begin();
+  :delay(DHT_BOOT_DELAY_MS);
+  :Print boot banner;
 }
 
-if (bufferCount >= 10?) then (yes)
-  :dumpAndReset()\nprint 10-row table\nbufferCount = 0;
-else (no)
-endif
+repeat
+  partition "Acquisition" {
+    :ACTIVITY LED -> HIGH;
+    :readDht() with one retry;
+    if (valid sample?) then (yes)
+      :buffer[bufferCount] = {timestamp, t, h};
+      :bufferCount++;
+      :totalReadings++;
+      :log [READ n/10];
+    else (no)
+      :log [ERROR];
+    endif
+    :ACTIVITY LED -> LOW;
+  }
 
-:log [SLEEP] entering Deep Sleep;
-:Serial.flush();
-:AWAKE LED -> LOW;
-:esp_sleep_enable_timer_wakeup(60s);
-:esp_deep_sleep_start();
-note right: never returns;\nchip wakes via reset
+  if (bufferCount >= 10?) then (yes)
+    :dumpAndReset();
+  else (no)
+  endif
 
-stop
+  :AWAKE LED -> LOW;
+  :esp_sleep_enable_timer_wakeup\n(SLEEP_INTERVAL);
+
+  if (Light Sleep build?) then (yes)
+    :esp_light_sleep_start();
+    note right
+      returns on wake;
+      SRAM + millis() preserved
+    end note
+    :AWAKE LED -> HIGH;
+  else (Deep Sleep build)
+    :esp_deep_sleep_start();
+    note right
+      never returns;
+      chip resets and re-runs
+      setup() on timer wake
+    end note
+    stop
+  endif
+repeat while (true) is (Light Sleep)
 
 @enduml

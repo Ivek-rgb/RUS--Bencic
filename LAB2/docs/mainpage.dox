@@ -6,68 +6,89 @@
  * Periodic-wake environment datalogger implementing **Variant 2** of
  * RUS-TVZ Lab 2 ("Upravljanje potrosnjom energije mikrokontrolera" -
  * Power management of microcontrollers). The firmware demonstrates an
- * event-driven control flow where the ESP32 spends almost all of its
- * time in a low-power sleep mode and only wakes periodically to acquire
- * a temperature + humidity sample from a DHT22, buffer it, and dump the
+ * event-driven control flow where the ESP32 spends most of its time in
+ * a low-power sleep mode and only wakes periodically to acquire a
+ * temperature + humidity sample from a DHT22, buffer it, and dump the
  * last ten samples to the serial port in one block.
  *
- * @section variants Two source variants for two purposes
+ * @section variants Two source variants for two sleep modes
  *
- * The project ships **two implementations of the same firmware** because
- * the live-demo platform (Wokwi) and the target deployment platform
- * (real ESP32 silicon) impose different constraints.
+ * The project ships **two implementations of the same datalogger**
+ * because the live-demo platform (Wokwi) and the target deployment
+ * platform (real ESP32 silicon) impose different constraints on which
+ * ESP32 sleep mode is practical.
  *
- * | File                              | Sleep mechanism                                                                       | Storage                       | Built by default |
- * |-----------------------------------|---------------------------------------------------------------------------------------|-------------------------------|------------------|
- * | `src/main.cpp`                    | Hybrid: 3 s emulated visible sleep (delay) + 1 s real `esp_deep_sleep_start()`        | `RTC_DATA_ATTR` ring buffer   | Yes (Wokwi demo) |
- * | `src/archive/main1.cpp`           | Full-duration real `esp_deep_sleep_start()` + timer wake (60 s)                       | `RTC_DATA_ATTR` ring buffer   | No  (`-e esp32-realhw`) |
+ * | File                              | Sleep mode                                  | Interval | Storage                            | Built by default |
+ * |-----------------------------------|---------------------------------------------|----------|------------------------------------|------------------|
+ * | `src/main1.cpp`                   | **Light Sleep** (`esp_light_sleep_start`)   | 3 s      | plain static SRAM                  | Yes              |
+ * | `src/archive/main2.cpp`           | **Deep Sleep** (`esp_deep_sleep_start`)     | 60 s     | `RTC_DATA_ATTR` ring buffer        | No (`-e esp32-realhw`) |
  *
- * Both variants actually call the real Deep Sleep API on every cycle.
- * The Wokwi demo just trims that real Deep Sleep to ~1 second per cycle
- * (so the chip resets briefly, instead of for 60 s) and inserts a
- * visible `delay()` phase before it so the audience sees a clean
- * 3-second sleep window before the reset. The full hardware variant
- * skips the visible phase and stays in real Deep Sleep for the full
- * interval. Behaviourally both variants produce the same DHT22 +
- * 10-sample buffer + dump-and-reset flow; the buffer lives in RTC slow
- * memory in both cases, exactly as on real silicon.
+ * The two files are genuinely different sleep-mode demonstrations, not
+ * just cadence variants:
  *
- * @section why_emulated Why Wokwi cannot run the real Deep Sleep path
+ *   - **`src/main1.cpp` (Wokwi demo, Light Sleep)** -
+ *     `esp_light_sleep_start()` pauses the CPU but does not reset the
+ *     chip. The call returns on timer wake with SRAM and `millis()`
+ *     preserved, so the ring buffer lives in ordinary static storage
+ *     and `setup()` runs only once. Wi-Fi is explicitly disabled via
+ *     `WiFi.mode(WIFI_OFF)` so the active phase only pays for the CPU
+ *     + sensor + LEDs.
+ *   - **`src/archive/main2.cpp` (real hardware, Deep Sleep)** -
+ *     `esp_deep_sleep_start()` powers most of the chip down and
+ *     triggers a reset on wake. `setup()` runs again every cycle;
+ *     cross-cycle state survives only because the ring buffer,
+ *     counters, and uptime accumulator are tagged `RTC_DATA_ATTR`.
+ *     This is the firmware that would be flashed to an actual ESP32
+ *     in the field for the lowest possible average current.
  *
- * Two independent limitations apply:
+ * @section why_split Why split by sleep mode instead of cadence
  *
- *  1. `esp_light_sleep_start()` cannot be called repeatedly from a user
- *     task under the Arduino-ESP32 framework, because the framework
- *     ships without `CONFIG_PM_ENABLE`. The SMP-aware sleep-entry path
- *     is bypassed, the FreeRTOS idle-task spinlocks on the other core
- *     desync, and the second sleep cycle reliably trips an assertion
- *     in `spinlock_acquire()`. There is no application-level fix.
- *  2. `esp_deep_sleep_start()` *does* work in Wokwi - it resets the
- *     chip on every wake, which is correct Deep Sleep behaviour. The
- *     simulator does not model power, so even when the sleep path runs,
- *     **no actual power saving can be measured**.
+ * On a bare ESP32-WROOM module Deep Sleep is ~80x lower current than
+ * Light Sleep (~10 uA vs ~0.8 mA). For battery-powered deployment the
+ * Deep Sleep path is the only one that makes sense - but it is also
+ * the one that interacts badly with Wokwi:
  *
- * The Wokwi demo variant (`src/main.cpp`) exercises the real Deep Sleep
- * API on every cycle, but keeps the real-sleep portion short (1 s) and
- * precedes it with a visible 3-second `delay()` window. The audience
- * sees a clean sleep phase (AWAKE LED off, serial quiet), then a
- * compact `[BOOT #n via TIMER]` line on each wake instead of the full
- * banner. The full hardware variant (`src/archive/main1.cpp`) drops the
- * visible window and stays in real Deep Sleep for the entire 60-second
- * interval.
+ *  1. **Deep Sleep resets the chip on every wake.** Correct behaviour,
+ *     but visually noisy in Wokwi: the boot ROM relogs and the
+ *     application banner reprints every cycle. Cross-cycle state must
+ *     live in `RTC_DATA_ATTR` to survive the reset.
+ *  2. **Wokwi has a TG1WDT-vs-sleep race.** TG1 main watchdog remains
+ *     armed across some reset paths in the simulator and can fire
+ *     during the sleep window, producing a `TG1WDT_SYS_RESET` instead
+ *     of a clean `DEEPSLEEP_RESET` - which on Wokwi also wipes the
+ *     RTC slow memory the application is relying on.
+ *
+ * Light Sleep sidesteps both: there is no reset, no banner reprint,
+ * no `RTC_DATA_ATTR` requirement, and no watchdog race. That makes it
+ * the better choice for a live Wokwi demonstration. Deep Sleep remains
+ * the correct choice for actual silicon where neither Wokwi quirk
+ * applies and where the lower sleep current matters.
+ *
+ * @section wifi_off Why Wi-Fi is explicitly disabled (Light Sleep variant)
+ *
+ * Arduino-ESP32 brings the Wi-Fi radio up in STA mode at boot even if
+ * the application never calls `WiFi.begin()`. The RF front-end keeps
+ * drawing tens of milliamps until something stops it. The Light Sleep
+ * variant calls `WiFi.mode(WIFI_OFF)` early in `setup()` so that
+ * Light Sleep can actually realise its `~0.8 mA` floor instead of
+ * being pinned to whatever the radio happens to be doing. The Deep
+ * Sleep variant inherits Wi-Fi-off behaviour from the Deep Sleep
+ * call itself (it powers the radio down regardless), so an explicit
+ * `WiFi.mode(WIFI_OFF)` is not required there.
  *
  * @section spec Lab requirements vs. implementation
  *
- * | Requirement (from the spec)                              | Where it lives                                                     |
- * |----------------------------------------------------------|--------------------------------------------------------------------|
- * | Sleep mode (ESP32: Deep Sleep recommended)               | `esp_deep_sleep_start()` in BOTH `src/main.cpp` and `src/archive/main1.cpp`  |
- * | Wake source: timer                                       | `esp_sleep_enable_timer_wakeup()` in both files                              |
- * | Simulate environmental readings                          | `DHT22` part in `diagram.json`, Adafruit DHT library in both files           |
- * | Store last 10 measurements                               | Ring buffer of size 10 in both files                                         |
- * | Use RTC memory on ESP32                                  | `RTC_DATA_ATTR` qualifiers in both files                                     |
- * | Print + reset buffer after 10 samples                    | `dumpAndReset()` in both files                                               |
- * | Separate phases: active / sleep / wake                   | `performReading()` / `emulatedSleep()` + Deep Sleep / cold-vs-timer branch   |
- * | Do not use only `delay()` for time control               | Real `esp_deep_sleep_start()` runs every cycle; `delay()` is the visible cue only |
+ * | Requirement (from the spec)                              | Where it lives                                                                          |
+ * |----------------------------------------------------------|-----------------------------------------------------------------------------------------|
+ * | Sleep mode (ESP32: Light / Deep / Modem)                 | `esp_light_sleep_start()` in `src/main1.cpp`; `esp_deep_sleep_start()` in `src/archive/main2.cpp` |
+ * | Wake source: timer                                       | `esp_sleep_enable_timer_wakeup()` in both files                                         |
+ * | Simulate environmental readings                          | `DHT22` part in `diagram.json`, Adafruit DHT library                                    |
+ * | Store last 10 measurements                               | Ring buffer of 10 `Reading` entries in both files                                       |
+ * | Reduce idle current draw                                 | `WiFi.mode(WIFI_OFF)` in `src/main1.cpp`; Deep Sleep does this implicitly in main2.cpp  |
+ * | Use RTC memory on ESP32                                  | `RTC_DATA_ATTR` qualifiers in `src/archive/main2.cpp` (required for Deep Sleep)         |
+ * | Print + reset buffer after 10 samples                    | `dumpAndReset()` in both files                                                          |
+ * | Separate phases: active / sleep / wake                   | `performReading()` / `lightSleep()` markers (main1); cold-vs-timer branch (main2)       |
+ * | Do not use only `delay()` for time control               | Real sleep API call runs every cycle in both files                                      |
  *
  * @section diagrams System diagrams
  *
@@ -79,7 +100,7 @@
  *   state "READ"           as Read    : DHT22 readTemperature\n+ readHumidity
  *   state "BUFFERED"       as Buf     : append to ring buffer\nbufferCount++
  *   state "ACTIVITY PULSE" as Pulse   : ACTIVITY LED on\nfor 200 ms
- *   state "SLEEP"          as Sleep   : AWAKE LED off\nemulated (demo)\nor Deep Sleep (HW)
+ *   state "SLEEP"          as Sleep   : AWAKE LED off\nLight Sleep (main1)\nor Deep Sleep (main2)
  *
  *   [*] --> Read
  *   Read --> Buf     : valid sample
@@ -91,20 +112,25 @@
  * state "DUMP" as Dump : print 10 samples\nas table\nbufferCount = 0
  * Cycle --> Dump   : bufferCount == 10
  * Dump  --> Sleep  : ready for next cycle
- * Sleep --> Read   : timer wake\n(every SLEEP_INTERVAL)
+ * Sleep --> Read   : timer wake\n(SLEEP_INTERVAL)
  *
  * note right of Sleep
- *   Wokwi demo (src/main.cpp):
- *     delay(3000) - emulated sleep.
- *   Real HW (src/archive/main1.cpp):
- *     esp_deep_sleep_start() with
- *     60-second timer wake.
+ *   Wokwi demo (src/main1.cpp):
+ *     esp_light_sleep_start()
+ *     call RETURNS on wake;
+ *     loop() resumes inline.
+ *     Interval: 3 s.
+ *   Real HW (src/archive/main2.cpp):
+ *     esp_deep_sleep_start()
+ *     chip RESETS on wake;
+ *     setup() runs again.
+ *     Interval: 60 s.
  * end note
  * @enduml
  *
- * @subsection pf Program flow (real HW Deep Sleep variant)
+ * @subsection pf Program flow (Deep Sleep variant - real HW)
  * @startuml
- * title Datalogger - Program Flow on Real Hardware
+ * title Datalogger - Program Flow on Real Hardware (Deep Sleep)
  *
  * start
  * :Power on or wake from Deep Sleep;
@@ -122,7 +148,7 @@
  *   :ACTIVITY LED -> HIGH;
  *   :readDht() with one retry;
  *   if (valid sample?) then (yes)
- *     :append to buffer\n[uptimeS, t, h];
+ *     :append to RTC buffer\n[uptimeS, t, h];
  *     :totalReadings++;
  *   else (no)
  *     :log [ERROR];
@@ -138,14 +164,53 @@
  * :AWAKE LED -> LOW;
  * :esp_sleep_enable_timer_wakeup(60s);
  * :esp_deep_sleep_start();
- * note right: never returns
+ * note right: never returns;\nchip resets on wake
  *
  * stop
  * @enduml
  *
+ * @subsection pf_light Program flow (Light Sleep variant - Wokwi demo)
+ * @startuml
+ * title Datalogger - Program Flow on Wokwi (Light Sleep)
+ *
+ * start
+ * :Power on (once);
+ * :Serial.begin(115200);
+ * :WiFi.mode(WIFI_OFF);
+ * :Init LEDs + DHT22;
+ * :delay(DHT_BOOT_DELAY_MS);
+ * :Print banner (once);
+ *
+ * repeat
+ *   partition "Acquisition" {
+ *     :ACTIVITY LED -> HIGH;
+ *     :readDht() with one retry;
+ *     if (valid sample?) then (yes)
+ *       :buffer[bufferCount] = {millis(), t, h};
+ *       :totalReadings++;
+ *     else (no)
+ *       :log [ERROR];
+ *     endif
+ *     :ACTIVITY LED -> LOW;
+ *   }
+ *
+ *   if (bufferCount >= 10?) then (yes)
+ *     :dumpAndReset();
+ *   else (no)
+ *   endif
+ *
+ *   :AWAKE LED -> LOW;
+ *   :esp_sleep_enable_timer_wakeup(3s);
+ *   :esp_light_sleep_start();
+ *   note right: returns on wake;\nSRAM + millis() preserved
+ *   :AWAKE LED -> HIGH;
+ * repeat while (true)
+ *
+ * @enduml
+ *
  * @subsection pmem Persistent memory layout (Deep Sleep variant)
  * @startuml
- * title RTC slow-memory layout
+ * title RTC slow-memory layout (src/archive/main2.cpp)
  *
  * rectangle "RTC_DATA_ATTR Reading buffer[10]" as Buf #d6eaff
  * rectangle "RTC_DATA_ATTR bufferCount  : uint8_t"  as BC  #d6eaff
@@ -162,6 +227,9 @@
  * note right of UpS : Accumulator that timestamps\nsamples without an RTC
  * @enduml
  *
+ * The Light Sleep variant has no equivalent layout: SRAM is preserved
+ * across `esp_light_sleep_start()`, so all storage is plain `static`.
+ *
  * @section wokwi_limits Wokwi simulator limitations
  *
  * The lab requirements explicitly require a "Wokwi-simulator
@@ -169,18 +237,21 @@
  * variant are:
  *
  *   - **No power measurement.** Wokwi does not model current draw, so
- *     none of the metrics that would justify Deep Sleep (microamps in
- *     sleep, milliamps awake, theoretical battery life) can be obtained
- *     in simulation. Real-circuit measurement (a current meter, or a
- *     tool like ARM Energy Profiler) is required.
- *   - **Light Sleep is unusable.** As described in @ref why_emulated,
- *     calling `esp_light_sleep_start()` from a user task under
- *     Arduino-ESP32 asserts on the second cycle. This is a framework
- *     limitation, not a Wokwi one - but Wokwi makes it easy to see.
- *   - **Deep Sleep works but resets the chip.** This is *correct* Deep
- *     Sleep behaviour, but it makes a live demo visually noisy because
- *     the banner reprints every interval. The Wokwi-demo variant in
- *     `src/main.cpp` sidesteps this by emulating sleep with `delay()`.
+ *     none of the metrics that would justify either sleep mode
+ *     (milliamps awake, microamps asleep, theoretical battery life)
+ *     can be obtained in simulation. Real-circuit measurement (a
+ *     current meter, or a tool like ARM Energy Profiler) is required.
+ *     The battery-life numbers in README.md are datasheet-derived
+ *     estimates, not measurements.
+ *   - **Deep Sleep is visually noisy and races a watchdog.** It resets
+ *     the chip on every wake (correct behaviour) and reprints the boot
+ *     banner each cycle. Wokwi also has a watchdog-vs-sleep race that
+ *     can produce `TG1WDT_SYS_RESET` instead of a clean
+ *     `DEEPSLEEP_RESET`, wiping RTC memory. `src/main1.cpp` uses Light
+ *     Sleep to sidestep both effects for the live demo;
+ *     `src/archive/main2.cpp` keeps Deep Sleep because that is the
+ *     correct mode on real silicon, where these Wokwi-specific quirks
+ *     do not exist.
  *   - **DHT22 readings are synthetic.** Wokwi's DHT22 part returns the
  *     `temperature` / `humidity` values configured in `diagram.json`,
  *     not real environmental data. The logic of the datalogger
@@ -189,5 +260,5 @@
  *
  * @author Ivan Bencic
  * @date 2026
- * @version 1.0
+ * @version 2.1
  */
