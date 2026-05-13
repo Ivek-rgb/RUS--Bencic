@@ -5,7 +5,7 @@ state "Acquisition cycle" as Cycle {
   state "READ"           as Read    : DHT22 readTemperature\n+ readHumidity
   state "BUFFERED"       as Buf     : append to ring buffer\nbufferCount++
   state "ACTIVITY PULSE" as Pulse   : ACTIVITY LED on\nfor 200 ms
-  state "SLEEP"          as Sleep   : AWAKE LED off\nemulated (demo)\nor Deep Sleep (HW)
+  state "SLEEP"          as Sleep   : AWAKE LED off\nLight Sleep (main1)\nor Deep Sleep (main2)
 
   [*] --> Read
   Read --> Buf     : valid sample
@@ -17,18 +17,23 @@ state "Acquisition cycle" as Cycle {
 state "DUMP" as Dump : print 10 samples\nas table\nbufferCount = 0
 Cycle --> Dump   : bufferCount == 10
 Dump  --> Sleep  : ready for next cycle
-Sleep --> Read   : timer wake\n(every SLEEP_INTERVAL)
+Sleep --> Read   : timer wake\n(SLEEP_INTERVAL)
 
 note right of Sleep
-  Wokwi demo (src/main.cpp):
-    delay(3000) - emulated sleep.
-  Real HW (src/archive/main1.cpp):
-    esp_deep_sleep_start() with
-    60-second timer wake.
+  Wokwi demo (src/main1.cpp):
+    esp_light_sleep_start()
+    call RETURNS on wake;
+    loop() resumes inline.
+    Interval: 3 s.
+  Real HW (src/archive/main2.cpp):
+    esp_deep_sleep_start()
+    chip RESETS on wake;
+    setup() runs again.
+    Interval: 60 s.
 end note
 @enduml
 @startuml inline_umlgraph_2.png
-title Datalogger - Program Flow on Real Hardware
+title Datalogger - Program Flow on Real Hardware (Deep Sleep)
 
 start
 :Power on or wake from Deep Sleep;
@@ -46,7 +51,7 @@ partition "Acquisition" {
   :ACTIVITY LED -> HIGH;
   :readDht() with one retry;
   if (valid sample?) then (yes)
-    :append to buffer\n[uptimeS, t, h];
+    :append to RTC buffer\n[uptimeS, t, h];
     :totalReadings++;
   else (no)
     :log [ERROR];
@@ -62,12 +67,48 @@ endif
 :AWAKE LED -> LOW;
 :esp_sleep_enable_timer_wakeup(60s);
 :esp_deep_sleep_start();
-note right: never returns
+note right: never returns;\nchip resets on wake
 
 stop
 @enduml
 @startuml inline_umlgraph_3.png
-title RTC slow-memory layout
+title Datalogger - Program Flow on Wokwi (Light Sleep)
+
+start
+:Power on (once);
+:Serial.begin(115200);
+:WiFi.mode(WIFI_OFF);
+:Init LEDs + DHT22;
+:delay(DHT_BOOT_DELAY_MS);
+:Print banner (once);
+
+repeat
+  partition "Acquisition" {
+    :ACTIVITY LED -> HIGH;
+    :readDht() with one retry;
+    if (valid sample?) then (yes)
+      :buffer[bufferCount] = {millis(), t, h};
+      :totalReadings++;
+    else (no)
+      :log [ERROR];
+    endif
+    :ACTIVITY LED -> LOW;
+  }
+
+  if (bufferCount >= 10?) then (yes)
+    :dumpAndReset();
+  else (no)
+  endif
+
+  :AWAKE LED -> LOW;
+  :esp_sleep_enable_timer_wakeup(3s);
+  :esp_light_sleep_start();
+  note right: returns on wake;\nSRAM + millis() preserved
+  :AWAKE LED -> HIGH;
+repeat while (true)
+@enduml
+@startuml inline_umlgraph_4.png
+title RTC slow-memory layout (src/archive/main2.cpp)
 
 rectangle "RTC_DATA_ATTR Reading buffer[10]" as Buf #d6eaff
 rectangle "RTC_DATA_ATTR bufferCount  : uint8_t"  as BC  #d6eaff

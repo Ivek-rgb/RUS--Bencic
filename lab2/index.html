@@ -75,48 +75,60 @@ $(function() {
 <div class="contents">
 <div class="textblock"><h1><a class="anchor" id="intro"></a>
 Introduction</h1>
-<p>Periodic-wake environment datalogger implementing <b>Variant 2</b> of RUS-TVZ Lab 2 ("Upravljanje potrosnjom energije mikrokontrolera" - Power management of microcontrollers). The firmware demonstrates an event-driven control flow where the ESP32 spends almost all of its time in a low-power sleep mode and only wakes periodically to acquire a temperature + humidity sample from a DHT22, buffer it, and dump the last ten samples to the serial port in one block.</p>
+<p>Periodic-wake environment datalogger implementing <b>Variant 2</b> of RUS-TVZ Lab 2 ("Upravljanje potrosnjom energije mikrokontrolera" - Power management of microcontrollers). The firmware demonstrates an event-driven control flow where the ESP32 spends most of its time in a low-power sleep mode and only wakes periodically to acquire a temperature + humidity sample from a DHT22, buffer it, and dump the last ten samples to the serial port in one block.</p>
 <h1><a class="anchor" id="variants"></a>
-Two source variants for two purposes</h1>
-<p>The project ships <b>two implementations of the same firmware</b> because the live-demo platform (Wokwi) and the target deployment platform (real ESP32 silicon) impose different constraints.</p>
+Two source variants for two sleep modes</h1>
+<p>The project ships <b>two implementations of the same datalogger</b> because the live-demo platform (Wokwi) and the target deployment platform (real ESP32 silicon) impose different constraints on which ESP32 sleep mode is practical.</p>
 <table class="markdownTable">
 <tr class="markdownTableHead">
-<th class="markdownTableHeadNone">File   </th><th class="markdownTableHeadNone">Sleep mechanism   </th><th class="markdownTableHeadNone">Storage   </th><th class="markdownTableHeadNone">Built by default    </th></tr>
+<th class="markdownTableHeadNone">File   </th><th class="markdownTableHeadNone">Sleep mode   </th><th class="markdownTableHeadNone">Interval   </th><th class="markdownTableHeadNone">Storage   </th><th class="markdownTableHeadNone">Built by default    </th></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><code><a class="el" href="main_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (Wokwi demo with real Deep Sleep)">src/main.cpp</a></code>   </td><td class="markdownTableBodyNone">Hybrid: 3 s emulated visible sleep (delay) + 1 s real <code>esp_deep_sleep_start()</code>   </td><td class="markdownTableBodyNone"><code>RTC_DATA_ATTR</code> ring buffer   </td><td class="markdownTableBodyNone">Yes (Wokwi demo)    </td></tr>
+<td class="markdownTableBodyNone"><code><a class="el" href="main1_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (Light Sleep, Wokwi demo)">src/main1.cpp</a></code>   </td><td class="markdownTableBodyNone"><b>Light Sleep</b> (<code>esp_light_sleep_start</code>)   </td><td class="markdownTableBodyNone">3 s   </td><td class="markdownTableBodyNone">plain static SRAM   </td><td class="markdownTableBodyNone">Yes    </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone"><code><a class="el" href="main1_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (real ESP32 hardware)">src/archive/main1.cpp</a></code>   </td><td class="markdownTableBodyNone">Full-duration real <code>esp_deep_sleep_start()</code> + timer wake (60 s)   </td><td class="markdownTableBodyNone"><code>RTC_DATA_ATTR</code> ring buffer   </td><td class="markdownTableBodyNone">No (<code>-e esp32-realhw</code>)   </td></tr>
+<td class="markdownTableBodyNone"><code><a class="el" href="main2_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (real ESP32 hardware)">src/archive/main2.cpp</a></code>   </td><td class="markdownTableBodyNone"><b>Deep Sleep</b> (<code>esp_deep_sleep_start</code>)   </td><td class="markdownTableBodyNone">60 s   </td><td class="markdownTableBodyNone"><code>RTC_DATA_ATTR</code> ring buffer   </td><td class="markdownTableBodyNone">No (<code>-e esp32-realhw</code>)   </td></tr>
 </table>
-<p>Both variants actually call the real Deep Sleep API on every cycle. The Wokwi demo just trims that real Deep Sleep to ~1 second per cycle (so the chip resets briefly, instead of for 60 s) and inserts a visible <code>delay()</code> phase before it so the audience sees a clean 3-second sleep window before the reset. The full hardware variant skips the visible phase and stays in real Deep Sleep for the full interval. Behaviourally both variants produce the same DHT22 + 10-sample buffer + dump-and-reset flow; the buffer lives in RTC slow memory in both cases, exactly as on real silicon.</p>
-<h1><a class="anchor" id="why_emulated"></a>
-Why Wokwi cannot run the real Deep Sleep path</h1>
-<p>Two independent limitations apply:</p>
+<p>The two files are genuinely different sleep-mode demonstrations, not just cadence variants:</p>
+<ul>
+<li>**<code><a class="el" href="main1_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (Light Sleep, Wokwi demo)">src/main1.cpp</a></code> (Wokwi demo, Light Sleep)** - <code>esp_light_sleep_start()</code> pauses the CPU but does not reset the chip. The call returns on timer wake with SRAM and <code>millis()</code> preserved, so the ring buffer lives in ordinary static storage and <code><a class="el" href="main1_8cpp.html#a4fc01d736fe50cf5b977f755b675f11d">setup()</a></code> runs only once. Wi-Fi is explicitly disabled via <code>WiFi.mode(WIFI_OFF)</code> so the active phase only pays for the CPU<ul>
+<li>sensor + LEDs.</li>
+</ul>
+</li>
+<li>**<code><a class="el" href="main2_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (real ESP32 hardware)">src/archive/main2.cpp</a></code> (real hardware, Deep Sleep)** - <code>esp_deep_sleep_start()</code> powers most of the chip down and triggers a reset on wake. <code><a class="el" href="main1_8cpp.html#a4fc01d736fe50cf5b977f755b675f11d">setup()</a></code> runs again every cycle; cross-cycle state survives only because the ring buffer, counters, and uptime accumulator are tagged <code>RTC_DATA_ATTR</code>. This is the firmware that would be flashed to an actual ESP32 in the field for the lowest possible average current.</li>
+</ul>
+<h1><a class="anchor" id="why_split"></a>
+Why split by sleep mode instead of cadence</h1>
+<p>On a bare ESP32-WROOM module Deep Sleep is ~80x lower current than Light Sleep (~10 uA vs ~0.8 mA). For battery-powered deployment the Deep Sleep path is the only one that makes sense - but it is also the one that interacts badly with Wokwi:</p>
 <ol type="1">
-<li><code>esp_light_sleep_start()</code> cannot be called repeatedly from a user task under the Arduino-ESP32 framework, because the framework ships without <code>CONFIG_PM_ENABLE</code>. The SMP-aware sleep-entry path is bypassed, the FreeRTOS idle-task spinlocks on the other core desync, and the second sleep cycle reliably trips an assertion in <code>spinlock_acquire()</code>. There is no application-level fix.</li>
-<li><code>esp_deep_sleep_start()</code> <em>does</em> work in Wokwi - it resets the chip on every wake, which is correct Deep Sleep behaviour. The simulator does not model power, so even when the sleep path runs, <b>no actual power saving can be measured</b>.</li>
+<li><b>Deep Sleep resets the chip on every wake.</b> Correct behaviour, but visually noisy in Wokwi: the boot ROM relogs and the application banner reprints every cycle. Cross-cycle state must live in <code>RTC_DATA_ATTR</code> to survive the reset.</li>
+<li><b>Wokwi has a TG1WDT-vs-sleep race.</b> TG1 main watchdog remains armed across some reset paths in the simulator and can fire during the sleep window, producing a <code>TG1WDT_SYS_RESET</code> instead of a clean <code>DEEPSLEEP_RESET</code> - which on Wokwi also wipes the RTC slow memory the application is relying on.</li>
 </ol>
-<p>The Wokwi demo variant (<code><a class="el" href="main_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (Wokwi demo with real Deep Sleep)">src/main.cpp</a></code>) exercises the real Deep Sleep API on every cycle, but keeps the real-sleep portion short (1 s) and precedes it with a visible 3-second <code>delay()</code> window. The audience sees a clean sleep phase (AWAKE LED off, serial quiet), then a compact <code>[BOOT #n via TIMER]</code> line on each wake instead of the full banner. The full hardware variant (<code><a class="el" href="main1_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (real ESP32 hardware)">src/archive/main1.cpp</a></code>) drops the visible window and stays in real Deep Sleep for the entire 60-second interval.</p>
+<p>Light Sleep sidesteps both: there is no reset, no banner reprint, no <code>RTC_DATA_ATTR</code> requirement, and no watchdog race. That makes it the better choice for a live Wokwi demonstration. Deep Sleep remains the correct choice for actual silicon where neither Wokwi quirk applies and where the lower sleep current matters.</p>
+<h1><a class="anchor" id="wifi_off"></a>
+Why Wi-Fi is explicitly disabled (Light Sleep variant)</h1>
+<p>Arduino-ESP32 brings the Wi-Fi radio up in STA mode at boot even if the application never calls <code>WiFi.begin()</code>. The RF front-end keeps drawing tens of milliamps until something stops it. The Light Sleep variant calls <code>WiFi.mode(WIFI_OFF)</code> early in <code><a class="el" href="main1_8cpp.html#a4fc01d736fe50cf5b977f755b675f11d">setup()</a></code> so that Light Sleep can actually realise its <code>~0.8 mA</code> floor instead of being pinned to whatever the radio happens to be doing. The Deep Sleep variant inherits Wi-Fi-off behaviour from the Deep Sleep call itself (it powers the radio down regardless), so an explicit <code>WiFi.mode(WIFI_OFF)</code> is not required there.</p>
 <h1><a class="anchor" id="spec"></a>
 Lab requirements vs. implementation</h1>
 <table class="markdownTable">
 <tr class="markdownTableHead">
 <th class="markdownTableHeadNone">Requirement (from the spec)   </th><th class="markdownTableHeadNone">Where it lives    </th></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">Sleep mode (ESP32: Deep Sleep recommended)   </td><td class="markdownTableBodyNone"><code>esp_deep_sleep_start()</code> in BOTH <code><a class="el" href="main_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (Wokwi demo with real Deep Sleep)">src/main.cpp</a></code> and <code><a class="el" href="main1_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (real ESP32 hardware)">src/archive/main1.cpp</a></code>    </td></tr>
+<td class="markdownTableBodyNone">Sleep mode (ESP32: Light / Deep / Modem)   </td><td class="markdownTableBodyNone"><code>esp_light_sleep_start()</code> in <code><a class="el" href="main1_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (Light Sleep, Wokwi demo)">src/main1.cpp</a></code>; <code>esp_deep_sleep_start()</code> in <code><a class="el" href="main2_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (real ESP32 hardware)">src/archive/main2.cpp</a></code>    </td></tr>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone">Wake source: timer   </td><td class="markdownTableBodyNone"><code>esp_sleep_enable_timer_wakeup()</code> in both files    </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">Simulate environmental readings   </td><td class="markdownTableBodyNone"><code>DHT22</code> part in <code>diagram.json</code>, Adafruit DHT library in both files    </td></tr>
+<td class="markdownTableBodyNone">Simulate environmental readings   </td><td class="markdownTableBodyNone"><code>DHT22</code> part in <code>diagram.json</code>, Adafruit DHT library    </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">Store last 10 measurements   </td><td class="markdownTableBodyNone">Ring buffer of size 10 in both files    </td></tr>
+<td class="markdownTableBodyNone">Store last 10 measurements   </td><td class="markdownTableBodyNone">Ring buffer of 10 <code><a class="el" href="structReading.html">Reading</a></code> entries in both files    </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">Use RTC memory on ESP32   </td><td class="markdownTableBodyNone"><code>RTC_DATA_ATTR</code> qualifiers in both files    </td></tr>
+<td class="markdownTableBodyNone">Reduce idle current draw   </td><td class="markdownTableBodyNone"><code>WiFi.mode(WIFI_OFF)</code> in <code><a class="el" href="main1_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (Light Sleep, Wokwi demo)">src/main1.cpp</a></code>; Deep Sleep does this implicitly in <a class="el" href="main2_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (real ESP32 hardware)">main2.cpp</a>    </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">Print + reset buffer after 10 samples   </td><td class="markdownTableBodyNone"><code><a class="el" href="main_8cpp.html#a95addfd17d582c33a2180b618eaec2cb" title="Print the buffered samples as a table and clear the buffer.">dumpAndReset()</a></code> in both files    </td></tr>
+<td class="markdownTableBodyNone">Use RTC memory on ESP32   </td><td class="markdownTableBodyNone"><code>RTC_DATA_ATTR</code> qualifiers in <code><a class="el" href="main2_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (real ESP32 hardware)">src/archive/main2.cpp</a></code> (required for Deep Sleep)    </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">Separate phases: active / sleep / wake   </td><td class="markdownTableBodyNone"><code><a class="el" href="main_8cpp.html#aff26891297a7ef5d60a2dc921e7a2048" title="One acquisition cycle: pulse ACTIVITY LED, read DHT, append.">performReading()</a></code> / <code><a class="el" href="main_8cpp.html#ad90007c2dec1a8a4c9556eb956190d12" title="Emulated sleep window with audience-visible cues.">emulatedSleep()</a></code> + Deep Sleep / cold-vs-timer branch    </td></tr>
+<td class="markdownTableBodyNone">Print + reset buffer after 10 samples   </td><td class="markdownTableBodyNone"><code><a class="el" href="main1_8cpp.html#a95addfd17d582c33a2180b618eaec2cb" title="Print the buffered samples as a table and clear the buffer.">dumpAndReset()</a></code> in both files    </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">Do not use only <code>delay()</code> for time control   </td><td class="markdownTableBodyNone">Real <code>esp_deep_sleep_start()</code> runs every cycle; <code>delay()</code> is the visible cue only   </td></tr>
+<td class="markdownTableBodyNone">Separate phases: active / sleep / wake   </td><td class="markdownTableBodyNone"><code><a class="el" href="main1_8cpp.html#aff26891297a7ef5d60a2dc921e7a2048" title="One acquisition cycle: pulse ACTIVITY LED, read DHT, append.">performReading()</a></code> / <code><a class="el" href="main1_8cpp.html#accaae36395b6a43b8cc30473243776c4" title="Enter ESP32 Light Sleep for the given duration, then resume.">lightSleep()</a></code> markers (main1); cold-vs-timer branch (main2)    </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Do not use only <code>delay()</code> for time control   </td><td class="markdownTableBodyNone">Real sleep API call runs every cycle in both files   </td></tr>
 </table>
 <h1><a class="anchor" id="diagrams"></a>
 System diagrams</h1>
@@ -126,28 +138,33 @@ State machine</h2>
 <img src="inline_umlgraph_1.png" />
 </div>
 <h2><a class="anchor" id="pf"></a>
-Program flow (real HW Deep Sleep variant)</h2>
+Program flow (Deep Sleep variant - real HW)</h2>
 <div class="plantumlgraph">
 <img src="inline_umlgraph_2.png" />
+</div>
+<h2><a class="anchor" id="pf_light"></a>
+Program flow (Light Sleep variant - Wokwi demo)</h2>
+<div class="plantumlgraph">
+<img src="inline_umlgraph_3.png" />
 </div>
 <h2><a class="anchor" id="pmem"></a>
 Persistent memory layout (Deep Sleep variant)</h2>
 <div class="plantumlgraph">
-<img src="inline_umlgraph_3.png" />
+<img src="inline_umlgraph_4.png" />
 </div>
+<p>The Light Sleep variant has no equivalent layout: SRAM is preserved across <code>esp_light_sleep_start()</code>, so all storage is plain <code>static</code>.</p>
 <h1><a class="anchor" id="wokwi_limits"></a>
 Wokwi simulator limitations</h1>
 <p>The lab requirements explicitly require a "Wokwi-simulator
 limitations" section in the report. The relevant ones for this variant are:</p>
 <ul>
-<li><b>No power measurement.</b> Wokwi does not model current draw, so none of the metrics that would justify Deep Sleep (microamps in sleep, milliamps awake, theoretical battery life) can be obtained in simulation. Real-circuit measurement (a current meter, or a tool like ARM Energy Profiler) is required.</li>
-<li><b>Light Sleep is unusable.</b> As described in <a class="el" href="index.html#why_emulated">Why Wokwi cannot run the real Deep Sleep path</a>, calling <code>esp_light_sleep_start()</code> from a user task under Arduino-ESP32 asserts on the second cycle. This is a framework limitation, not a Wokwi one - but Wokwi makes it easy to see.</li>
-<li><b>Deep Sleep works but resets the chip.</b> This is <em>correct</em> Deep Sleep behaviour, but it makes a live demo visually noisy because the banner reprints every interval. The Wokwi-demo variant in <code><a class="el" href="main_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (Wokwi demo with real Deep Sleep)">src/main.cpp</a></code> sidesteps this by emulating sleep with <code>delay()</code>.</li>
+<li><b>No power measurement.</b> Wokwi does not model current draw, so none of the metrics that would justify either sleep mode (milliamps awake, microamps asleep, theoretical battery life) can be obtained in simulation. Real-circuit measurement (a current meter, or a tool like ARM Energy Profiler) is required. The battery-life numbers in README.md are datasheet-derived estimates, not measurements.</li>
+<li><b>Deep Sleep is visually noisy and races a watchdog.</b> It resets the chip on every wake (correct behaviour) and reprints the boot banner each cycle. Wokwi also has a watchdog-vs-sleep race that can produce <code>TG1WDT_SYS_RESET</code> instead of a clean <code>DEEPSLEEP_RESET</code>, wiping RTC memory. <code><a class="el" href="main1_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (Light Sleep, Wokwi demo)">src/main1.cpp</a></code> uses Light Sleep to sidestep both effects for the live demo; <code><a class="el" href="main2_8cpp.html" title="RUS Lab 2 - Variant 2: Environment Datalogger (real ESP32 hardware)">src/archive/main2.cpp</a></code> keeps Deep Sleep because that is the correct mode on real silicon, where these Wokwi-specific quirks do not exist.</li>
 <li><b>DHT22 readings are synthetic.</b> Wokwi's DHT22 part returns the <code>temperature</code> / <code>humidity</code> values configured in <code>diagram.json</code>, not real environmental data. The logic of the datalogger (buffering, dumping, timestamping) is fully testable; the <em>content</em> of the readings is not realistic.</li>
 </ul>
 <dl class="section author"><dt>Author</dt><dd>Ivan Bencic </dd></dl>
 <dl class="section date"><dt>Date</dt><dd>2026 </dd></dl>
-<dl class="section version"><dt>Version</dt><dd>1.0 </dd></dl>
+<dl class="section version"><dt>Version</dt><dd>2.1 </dd></dl>
 </div></div><!-- PageDoc -->
 </div><!-- contents -->
 <!-- start footer part -->

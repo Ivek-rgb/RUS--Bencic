@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['cannot_20run_20the_20real_20deep_20sleep_20path_0',['Why Wokwi cannot run the real Deep Sleep path',['../index.html#why_emulated',1,'']]]
+  ['cadence_0',['Why split by sleep mode instead of cadence',['../index.html#why_split',1,'']]]
 ];

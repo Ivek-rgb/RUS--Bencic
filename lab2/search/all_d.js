@@ -1,10 +1,17 @@
 var searchData=
 [
-  ['temperaturec_0',['temperatureC',['../structReading.html#a531399cdb7a10c6b21292d9658d7d393',1,'Reading']]],
-  ['the_20real_20deep_20sleep_20path_1',['Why Wokwi cannot run the real Deep Sleep path',['../index.html#why_emulated',1,'']]],
-  ['timestampms_2',['timestampMs',['../structReading.html#af9e359180d812764909dd0cb6131c115',1,'Reading']]],
-  ['timestamps_3',['timestampS',['../structReading.html#a77694a4a202ade5c579d2437c4e857da',1,'Reading']]],
-  ['totalreadings_4',['totalreadings',['../main_8cpp.html#aee4b2450d1501149220448773b904c18',1,'totalReadings:&#160;main.cpp'],['../main1_8cpp.html#aee4b2450d1501149220448773b904c18',1,'totalReadings:&#160;main1.cpp']]],
-  ['two_20purposes_5',['Two source variants for two purposes',['../index.html#variants',1,'']]],
-  ['two_20source_20variants_20for_20two_20purposes_6',['Two source variants for two purposes',['../index.html#variants',1,'']]]
+  ['setup_0',['setup',['../main2_8cpp.html#a4fc01d736fe50cf5b977f755b675f11d',1,'setup():&#160;main2.cpp'],['../main1_8cpp.html#a4fc01d736fe50cf5b977f755b675f11d',1,'setup():&#160;main1.cpp']]],
+  ['simulator_20limitations_1',['Wokwi simulator limitations',['../index.html#wokwi_limits',1,'']]],
+  ['sleep_20mode_20instead_20of_20cadence_2',['Why split by sleep mode instead of cadence',['../index.html#why_split',1,'']]],
+  ['sleep_20modes_3',['sleep modes',['../index.html',1,'ESP32 Environment Datalogger - Sleep Modes'],['../index.html#variants',1,'Two source variants for two sleep modes']]],
+  ['sleep_20variant_4',['sleep variant',['../index.html#pmem',1,'Persistent memory layout (Deep Sleep variant)'],['../index.html#wifi_off',1,'Why Wi-Fi is explicitly disabled (Light Sleep variant)']]],
+  ['sleep_20variant_20real_20hw_5',['Program flow (Deep Sleep variant - real HW)',['../index.html#pf',1,'']]],
+  ['sleep_20variant_20wokwi_20demo_6',['Program flow (Light Sleep variant - Wokwi demo)',['../index.html#pf_light',1,'']]],
+  ['sleep_5finterval_5fms_7',['SLEEP_INTERVAL_MS',['../main1_8cpp.html#a36f5d02f9285599ac97ddf6ff741f53c',1,'main1.cpp']]],
+  ['sleep_5finterval_5fs_8',['SLEEP_INTERVAL_S',['../main2_8cpp.html#a0e738f6267ece78f387ac7a05c1ca72a',1,'main2.cpp']]],
+  ['sleep_5finterval_5fus_9',['SLEEP_INTERVAL_US',['../main2_8cpp.html#acbd4502ce0bfb401d3345e08208aa486',1,'main2.cpp']]],
+  ['source_20variants_20for_20two_20sleep_20modes_10',['Two source variants for two sleep modes',['../index.html#variants',1,'']]],
+  ['split_20by_20sleep_20mode_20instead_20of_20cadence_11',['Why split by sleep mode instead of cadence',['../index.html#why_split',1,'']]],
+  ['state_20machine_12',['State machine',['../index.html#sm',1,'']]],
+  ['system_20diagrams_13',['System diagrams',['../index.html#diagrams',1,'']]]
 ];

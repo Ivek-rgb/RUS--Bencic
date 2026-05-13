@@ -1,7 +1,8 @@
 var searchData=
 [
-  ['wakereasontext_0',['wakeReasonText',['../main1_8cpp.html#aef6da15a750778b22b034fbcc4087b5b',1,'main1.cpp']]],
-  ['why_20wokwi_20cannot_20run_20the_20real_20deep_20sleep_20path_1',['Why Wokwi cannot run the real Deep Sleep path',['../index.html#why_emulated',1,'']]],
-  ['wokwi_20cannot_20run_20the_20real_20deep_20sleep_20path_2',['Why Wokwi cannot run the real Deep Sleep path',['../index.html#why_emulated',1,'']]],
-  ['wokwi_20simulator_20limitations_3',['Wokwi simulator limitations',['../index.html#wokwi_limits',1,'']]]
+  ['variant_0',['variant',['../index.html#pmem',1,'Persistent memory layout (Deep Sleep variant)'],['../index.html#wifi_off',1,'Why Wi-Fi is explicitly disabled (Light Sleep variant)']]],
+  ['variant_20real_20hw_1',['Program flow (Deep Sleep variant - real HW)',['../index.html#pf',1,'']]],
+  ['variant_20wokwi_20demo_2',['Program flow (Light Sleep variant - Wokwi demo)',['../index.html#pf_light',1,'']]],
+  ['variants_20for_20two_20sleep_20modes_3',['Two source variants for two sleep modes',['../index.html#variants',1,'']]],
+  ['vs_20implementation_4',['Lab requirements vs. implementation',['../index.html#spec',1,'']]]
 ];
